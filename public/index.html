@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     COTIBO — PÁGINA PRINCIPAL
+     Es un solo archivo HTML con su CSS y su JavaScript adentro,
+     para que sea fácil de leer y modificar. El JavaScript de abajo
+     pide los precios a /api/rates cada 60 segundos y arma las tarjetas.
+     ===================================================================== -->
+<html lang="es-BO">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CotiBO — Dólar en Bolivia hoy</title>
+  <meta name="description" content="Precio del dólar en Bolivia en tiempo real: oficial BCB, paralelo, Binance P2P, Takenos, Meru y Airtm. Calculadora y alertas por Telegram.">
+  <meta property="og:title" content="CotiBO — Dólar en Bolivia hoy">
+  <meta property="og:description" content="Cotizaciones USD/BOB en tiempo real de 6 fuentes.">
+  <link rel="icon" href="/icon.png">
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Librería del gráfico de velas (desde CDN, no hay que instalar nada) -->
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+
+  <!-- Google AdSense: cuando te aprueben, reemplaza ca-pub-XXXX por tu ID -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+
+  <style>
+    /* ============ ESTILOS ============ */
+    :root {
+      --fondo: #ffffff; --texto: #111827; --gris: #6b7280;
+      --tarjeta: #f9fafb; --borde: #e5e7eb; --acento: #2563eb;
+      --resaltado: #fefce8; --resaltado-borde: #fde047;
+    }
+    /* Modo oscuro automático según el celular del visitante */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fondo: #0a0a0f; --texto: #f3f4f6; --gris: #9ca3af;
+        --tarjeta: #16161f; --borde: #2a2a35; --acento: #60a5fa;
+        --resaltado: #2a2410; --resaltado-borde: #a16207;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--fondo); color: var(--texto);
+      max-width: 640px; margin: 0 auto; padding: 16px 16px 80px;
+    }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    h1 { font-size: 2rem; font-weight: 800; }
+    .sub { color: var(--gris); font-size: .875rem; }
+    a { color: var(--acento); }
+
+    .brecha {
+      display: flex; align-items: center; gap: 8px; margin-top: 10px;
+      background: var(--tarjeta); border: 1px solid var(--borde);
+      padding: 8px 12px; border-radius: 10px; font-size: .875rem;
+    }
+    .brecha .barra { flex: 1; max-width: 120px; height: 6px; background: var(--borde); border-radius: 99px; overflow: hidden; }
+    .brecha .barra > div { height: 100%; background: #eab308; }
+
+    .tarjetas { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+    .tarjeta {
+      background: var(--tarjeta); border: 1px solid var(--borde);
+      border-radius: 14px; padding: 14px; transition: transform 0.2s ease, border-color 0.2s ease;
+      cursor: pointer; position: relative;
+    }
+    .tarjeta:hover { transform: translateY(-2px); border-color: var(--acento); }
+    .tarjeta.destacada { background: var(--resaltado); border-color: var(--resaltado-borde); }
+    .tarjeta h3 { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--gris); margin-bottom: 6px; }
+    .tarjeta .fila { display: flex; justify-content: space-between; font-size: .875rem; padding: 2px 0; }
+    .tarjeta .valor { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .tarjeta .unico { font-size: 1.4rem; font-weight: 700; }
+    .tarjeta .unico small { font-size: .8rem; font-weight: 400; }
+    .badge-grafico { font-size: .65rem; color: var(--gris); margin-top: 6px; display: block; text-align: right; font-weight: 500; }
+
+    .caja {
+      background: var(--tarjeta); border: 1px solid var(--borde);
+      border-radius: 14px; padding: 16px; margin-top: 20px;
+    }
+    .caja h2 { font-size: 1.1rem; margin-bottom: 12px; }
+    .calc-entrada { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 1.25rem; }
+    .calc-entrada input {
+      width: 110px; font-size: 1.25rem; background: transparent; color: var(--texto);
+      border: none; border-bottom: 2px solid var(--borde); outline: none; padding: 2px;
+    }
+    .calc-fila { display: flex; justify-content: space-between; padding: 8px 10px; border-radius: 8px; }
+    .calc-fila.mejor { background: var(--resaltado); font-weight: 600; }
+    .num { font-variant-numeric: tabular-nums; }
+
+    #grafico { height: 240px; border: 1px solid var(--borde); border-radius: 14px; margin-top: 14px; overflow: hidden; }
+    .grafico-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+    .grafico-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tab-btn {
+      background: var(--fondo); color: var(--texto); border: 1px solid var(--borde);
+      padding: 6px 12px; border-radius: 8px; font-size: .8rem; font-weight: 500; cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .tab-btn:hover { border-color: var(--acento); }
+    .tab-btn.activo { background: var(--acento); color: #fff; border-color: var(--acento); font-weight: 600; }
+
+    .boton {
+      display: inline-block; background: var(--acento); color: #fff;
+      padding: 10px 16px; border-radius: 10px; text-decoration: none;
+      border: none; font-size: 1rem; cursor: pointer;
+    }
+    .esqueleto { animation: pulso 1.4s infinite; background: var(--tarjeta); border-radius: 14px; }
+    @keyframes pulso { 50% { opacity: .5; } }
+    @media (prefers-reduced-motion: reduce) { .esqueleto { animation: none; } }
+    footer { text-align: center; color: var(--gris); font-size: .75rem; margin-top: 28px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Cambi</h1>
+      <p class="sub">Cotizaciones del dólar en Bolivia</p>
+    </div>
+    <a href="/premium.html" id="link-premium">Quitar anuncios</a>
+  </header>
+
+  <!-- Brecha entre el dólar oficial y el de mercado -->
+  <div class="brecha" id="brecha" hidden>
+    <span id="brecha-texto"></span>
+    <div class="barra"><div id="brecha-barra"></div></div>
+  </div>
+
+  <!-- Aquí el JavaScript dibuja las 6 tarjetas -->
+  <div class="tarjetas" id="tarjetas">
+    <div class="esqueleto" style="height:90px"></div>
+    <div class="esqueleto" style="height:90px"></div>
+    <div class="esqueleto" style="height:90px"></div>
+    <div class="esqueleto" style="height:90px"></div>
+    <div class="esqueleto" style="height:90px"></div>
+    <div class="esqueleto" style="height:90px"></div>
+  </div>
+
+  <!-- Anuncio (se esconde solo si el visitante es premium) -->
+  <div id="anuncio">
+    <ins class="adsbygoogle" style="display:block"
+      data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+      data-ad-slot="1234567890"
+      data-ad-format="auto" data-full-width-responsive="true"></ins>
+  </div>
+
+  <!-- Calculadora -->
+  <div class="caja">
+    <h2>💰 ¿Cuánto recibo?</h2>
+    <div class="calc-entrada">
+      <span>$</span>
+      <input type="number" id="monto" value="100" min="0" aria-label="Monto en dólares">
+      <span class="sub">USD</span>
+    </div>
+    <div id="calc-resultados"></div>
+  </div>
+
+  <!-- Gráfico de velas interactivo (pestañas para Binance USDT, Binance USDC o Paralelo) -->
+  <div class="caja" id="caja-grafico">
+    <div class="grafico-header">
+      <div>
+        <h2 id="grafico-titulo">📈 Gráfico — Binance USDT / BOB</h2>
+        <p class="sub" style="margin-top:2px;">Cotización P2P en velas de 15 minutos</p>
+      </div>
+      <div class="grafico-tabs">
+        <button class="tab-btn activo" id="tab-binanceUsdt" onclick="cambiarFuenteGrafico('binanceUsdt', 'Binance USDT / BOB')">💛 USDT Binance</button>
+        <button class="tab-btn" id="tab-binanceUsdc" onclick="cambiarFuenteGrafico('binanceUsdc', 'Binance USDC / BOB')">💙 USDC Binance</button>
+        <button class="tab-btn" id="tab-paralelo" onclick="cambiarFuenteGrafico('paralelo', 'Paralelo P2P / BOB')">🏚 Paralelo P2P</button>
+        <button class="tab-btn" id="tab-takenos" onclick="cambiarFuenteGrafico('takenos', 'Takenos / BOB')">🟣 Takenos</button>
+        <button class="tab-btn" id="tab-meru" onclick="cambiarFuenteGrafico('meru', 'Meru / BOB')">🟢 Meru</button>
+      </div>
+    </div>
+    <div id="grafico"></div>
+  </div>
+
+  <!-- Alertas por Telegram -->
+  <div class="caja">
+    <h2>🔔 Alertas gratis por Telegram</h2>
+    <p class="sub" style="margin-bottom:12px">
+      Escríbele a nuestro bot <b>/alerta 10.80</b> y te avisará al instante
+      cuando el dólar llegue a ese precio. También responde <b>/dolar</b>
+      con las cotizaciones al momento.
+    </p>
+    <!-- ⚠️ Cambia cotibo_bot por el usuario real de TU bot -->
+    <a class="boton" href="https://t.me/cotibo_bot" target="_blank" rel="noopener">Abrir el bot en Telegram</a>
+  </div>
+
+  <footer>
+    <span id="actualizado"></span><br>
+    Los valores son referenciales y no constituyen una oferta de cambio.
+  </footer>
+
+  <script>
+    // =================================================================
+    // JAVASCRIPT DE LA PÁGINA
+    // 1. Pide /api/rates y dibuja las tarjetas + calculadora
+    // 2. Pide /api/history y dibuja el gráfico
+    // 3. Repite el paso 1 cada 60 segundos
+    // =================================================================
+
+    let datos = null; // aquí guardamos las últimas cotizaciones
+
+    const fmt = (n) => (n ? Number(n).toFixed(2) : '--');
+
+    // ---- Dibujar una tarjeta con compra y venta ----
+    function tarjetaHTML(titulo, r, destacada, claveGrafico) {
+      const click = claveGrafico ? `onclick="cambiarFuenteGrafico('${claveGrafico}', '${titulo}')" title="Haz clic para ver ${titulo} en el gráfico"` : '';
+      return `
+        <div class="tarjeta ${destacada ? 'destacada' : ''}" ${click}>
+          <h3>${titulo}</h3>
+          <div class="fila"><span>Compra</span><span class="valor">${fmt(r?.buy)}</span></div>
+          <div class="fila"><span>Venta</span><span class="valor">${fmt(r?.sell)}</span></div>
+          ${claveGrafico ? `<span class="badge-grafico">📊 Ver en gráfico →</span>` : ''}
+        </div>`;
+    }
+
+    // ---- Dibujar todo con los datos recibidos ----
+    function dibujar() {
+      const d = datos;
+
+      // Las 6 tarjetas: BCB, Paralelo P2P, Binance USDT, Binance USDC, Takenos, Meru
+      document.getElementById('tarjetas').innerHTML =
+        tarjetaHTML('Oficial BCB', d.bcb) +
+        tarjetaHTML('Paralelo P2P', d.paralelo, false, 'paralelo') +
+        tarjetaHTML('Binance USDT / BOB', d.binanceUsdt, true, 'binanceUsdt') +
+        tarjetaHTML('Binance USDC / BOB', d.binanceUsdc, true, 'binanceUsdc') +
+        tarjetaHTML('Takenos', d.takenos, false, 'takenos') +
+        tarjetaHTML('Meru', d.meru, false, 'meru');
+
+      // La brecha oficial vs mercado
+      const mercado = d.binanceUsdt?.buy || d.paralelo?.buy;
+      if (mercado && d.bcb?.sell) {
+        const brecha = ((mercado - d.bcb.sell) / d.bcb.sell) * 100;
+        document.getElementById('brecha').hidden = false;
+        document.getElementById('brecha-texto').textContent = 'Brecha oficial vs mercado: ' + brecha.toFixed(1) + '%';
+        document.getElementById('brecha-barra').style.width = Math.min(Math.abs(brecha), 100) + '%';
+      }
+
+      // Fecha de actualización
+      document.getElementById('actualizado').textContent =
+        'Actualizado: ' + new Date(d.updatedAt).toLocaleTimeString('es-BO');
+
+      calcular(); // refrescar la calculadora
+    }
+
+    // ---- La calculadora: multiplica y ordena de mejor a peor ----
+    function calcular() {
+      if (!datos) return;
+      const monto = Math.max(0, Number(document.getElementById('monto').value) || 0);
+      const opciones = [
+        { nombre: 'Binance USDT', valor: datos.binanceUsdt?.buy },
+        { nombre: 'Binance USDC', valor: datos.binanceUsdc?.buy },
+        { nombre: 'Paralelo P2P', valor: datos.paralelo?.buy },
+        { nombre: 'Takenos', valor: datos.takenos?.buy },
+        { nombre: 'Meru', valor: datos.meru?.buy },
+        { nombre: 'Oficial BCB', valor: datos.bcb?.sell },
+      ]
+        .filter((o) => o.valor > 0)          // ocultar fuentes sin datos
+        .sort((a, b) => b.valor - a.valor);  // la mejor tasa primero
+
+      document.getElementById('calc-resultados').innerHTML = opciones
+        .map((o, i) => `
+          <div class="calc-fila ${i === 0 ? 'mejor' : ''}">
+            <span>${o.nombre}${i === 0 ? ' 🏆' : ''}</span>
+            <span class="num">${(monto * o.valor).toFixed(2)} BOB</span>
+          </div>`)
+        .join('');
+    }
+    document.getElementById('monto').addEventListener('input', calcular);
+
+    // ---- Pedir las cotizaciones al servidor ----
+    async function cargarRates() {
+      try {
+        const res = await fetch('/api/rates');
+        if (!res.ok) return;
+        datos = await res.json();
+        dibujar();
+      } catch (e) { console.error(e); }
+    }
+
+    // ---- El gráfico de velas ----
+    let grafico = null, serie = null, fuenteGrafico = 'binanceUsdt';
+
+    async function cargarGrafico() {
+      try {
+        const res = await fetch('/api/history?fuente=' + fuenteGrafico);
+        const velas = await res.json();
+        const cont = document.getElementById('grafico');
+        if (!Array.isArray(velas) || velas.length === 0) {
+          cont.innerHTML =
+            '<p class="sub" style="padding:16px">El gráfico se irá llenando con el histórico del dólar.</p>';
+          return;
+        }
+        if (!grafico) {
+          cont.innerHTML = ''; // Limpiar si antes había un texto
+          const oscuro = matchMedia('(prefers-color-scheme: dark)').matches;
+          grafico = LightweightCharts.createChart(cont, {
+            width: cont.clientWidth, height: 240,
+            layout: { background: { color: 'transparent' }, textColor: '#999' },
+            grid: { vertLines: { color: 'rgba(150,150,150,.1)' }, horzLines: { color: 'rgba(150,150,150,.1)' } },
+            timeScale: { timeVisible: true, secondsVisible: false },
+          });
+          serie = grafico.addCandlestickSeries({
+            upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+            wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+          });
+          addEventListener('resize', () => grafico.applyOptions({ width: cont.clientWidth }));
+        }
+        serie.setData(velas);
+        grafico.timeScale().fitContent();
+      } catch (e) { console.error(e); }
+    }
+
+    function cambiarFuenteGrafico(nuevaFuente, titulo) {
+      fuenteGrafico = nuevaFuente;
+      const nombres = { binanceUsdt: 'Binance USDT / BOB', binanceUsdc: 'Binance USDC / BOB', paralelo: 'Paralelo P2P / BOB', takenos: 'Takenos / BOB', meru: 'Meru / BOB' };
+      document.getElementById('grafico-titulo').textContent = '📈 Gráfico — ' + (titulo || nombres[nuevaFuente] || nuevaFuente);
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('activo'));
+      const tabActual = document.getElementById('tab-' + nuevaFuente);
+      if (tabActual) tabActual.classList.add('activo');
+      
+      document.getElementById('caja-grafico').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      cargarGrafico();
+    }
+
+    // ---- ¿El visitante es premium? Entonces esconder el anuncio ----
+    async function revisarPremium() {
+      const email = localStorage.getItem('cotibo_email');
+      if (!email) return;
+      try {
+        const res = await fetch('/api/premium/status?email=' + encodeURIComponent(email));
+        const d = await res.json();
+        if (d.premium) {
+          document.getElementById('anuncio').remove();
+          document.getElementById('link-premium').textContent = 'Premium activo ⭐';
+        }
+      } catch {}
+    }
+
+    // ---- Encender todo ----
+    cargarRates();
+    cargarGrafico();
+    revisarPremium();
+    setInterval(cargarRates, 60000);   // repetir cada 60 segundos
+    setInterval(cargarGrafico, 60000);
+    try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
+  </script>
+</body>
+</html>

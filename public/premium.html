@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     COTIBO — PÁGINA PREMIUM (15 Bs/mes, sin anuncios)
+     El usuario: 1) paga con tu QR  2) escribe su email  3) sube la foto
+     La foto llega a TU Telegram y tú respondes /aprobar <id>
+     ===================================================================== -->
+<html lang="es-BO">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hazte Premium | Cambi</title>
+  <link rel="icon" href="/icon.png">
+  <style>
+    :root { --fondo:#fff; --texto:#111827; --gris:#6b7280; --tarjeta:#f9fafb; --borde:#e5e7eb; --acento:#2563eb; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fondo:#0a0a0f; --texto:#f3f4f6; --gris:#9ca3af; --tarjeta:#16161f; --borde:#2a2a35; --acento:#60a5fa; }
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body { font-family: system-ui, sans-serif; background: var(--fondo); color: var(--texto); max-width: 480px; margin: 0 auto; padding: 16px; }
+    a { color: var(--acento); }
+    h1 { font-size: 1.6rem; margin: 12px 0 4px; }
+    .sub { color: var(--gris); font-size: .9rem; }
+    .paso { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 16px; margin-top: 16px; }
+    .paso h2 { font-size: 1rem; margin-bottom: 10px; }
+    .qr { display: block; width: 200px; margin: 0 auto 10px; border-radius: 8px; }
+    .dato { font-size: .875rem; text-align: center; }
+    .dato b { font-size: 1rem; }
+    input[type=email] { width: 100%; padding: 10px; border: 1px solid var(--borde); border-radius: 8px; background: var(--fondo); color: var(--texto); font-size: 1rem; margin-bottom: 10px; }
+    input[type=file] { margin-bottom: 12px; font-size: .875rem; }
+    button { width: 100%; background: var(--acento); color: #fff; border: none; padding: 12px; border-radius: 10px; font-size: 1rem; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    #mensaje { margin-top: 10px; font-size: .9rem; }
+    .ok { color: #16a34a; } .error { color: #dc2626; }
+    .nota { font-size: .75rem; color: var(--gris); margin-top: 14px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+  <a href="/">← Volver a las cotizaciones</a>
+  <h1>Hazte Premium ⭐</h1>
+  <p class="sub">Navega sin anuncios por solo <b>15 Bs al mes</b>.</p>
+
+  <div class="paso">
+    <h2>1️⃣ Paga 15 Bs con este QR</h2>
+    <!-- ⚠️ Reemplaza qr-pago.png con la captura del QR de TU banco -->
+    <img class="qr" src="/qr-pago.png" alt="QR de pago">
+    <p class="dato">
+      Cuenta: <b>123-456789-00 · Banco XYZ</b><br>
+      Titular: <b>Tu Nombre</b><br>
+      Monto: <b>15 Bs</b>
+    </p>
+  </div>
+
+  <div class="paso">
+    <h2>2️⃣ Envía tu comprobante</h2>
+    <input type="email" id="email" placeholder="Tu email (ej: maria@gmail.com)" autocomplete="email">
+    <input type="file" id="foto" accept="image/*">
+    <button id="enviar">Enviar comprobante</button>
+    <p id="mensaje"></p>
+  </div>
+
+  <p class="nota">
+    Verificamos cada pago manualmente. La activación tarda minutos
+    (máximo 24 horas). Tu premium dura 31 días desde la aprobación.
+    La foto de tu comprobante no se guarda en nuestros servidores.
+  </p>
+
+  <script>
+    // Al hacer clic: armar el paquete (email + foto) y mandarlo al servidor
+    const boton = document.getElementById('enviar');
+    const mensaje = document.getElementById('mensaje');
+
+    boton.addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim();
+      const foto = document.getElementById('foto').files[0];
+
+      // Validar antes de enviar
+      if (!email.includes('@')) {
+        mensaje.textContent = 'Escribe un email válido.';
+        mensaje.className = 'error';
+        return;
+      }
+      if (!foto) {
+        mensaje.textContent = 'Selecciona la foto de tu comprobante.';
+        mensaje.className = 'error';
+        return;
+      }
+
+      boton.disabled = true;
+      boton.textContent = 'Enviando...';
+      mensaje.textContent = '';
+
+      try {
+        const paquete = new FormData();
+        paquete.append('email', email);
+        paquete.append('comprobante', foto);
+
+        const res = await fetch('/api/premium', { method: 'POST', body: paquete });
+        const data = await res.json();
+
+        mensaje.textContent = data.message;
+        mensaje.className = res.ok ? 'ok' : 'error';
+
+        if (res.ok) {
+          // Recordar el email en este navegador: cuando el admin apruebe,
+          // la página principal dejará de mostrar anuncios automáticamente
+          localStorage.setItem('cotibo_email', email.toLowerCase());
+        }
+      } catch {
+        mensaje.textContent = 'Error de conexión. Intenta de nuevo.';
+        mensaje.className = 'error';
+      }
+
+      boton.disabled = false;
+      boton.textContent = 'Enviar comprobante';
+    });
+  </script>
+</body>
+</html>
