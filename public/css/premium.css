@@ -1,0 +1,21 @@
+:root { --fondo:#fff; --texto:#111827; --gris:#6b7280; --tarjeta:#f9fafb; --borde:#e5e7eb; --acento:#2563eb; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fondo:#0a0a0f; --texto:#f3f4f6; --gris:#9ca3af; --tarjeta:#16161f; --borde:#2a2a35; --acento:#60a5fa; }
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body { font-family: system-ui, sans-serif; background: var(--fondo); color: var(--texto); max-width: 480px; margin: 0 auto; padding: 16px; }
+    a { color: var(--acento); }
+    h1 { font-size: 1.6rem; margin: 12px 0 4px; }
+    .sub { color: var(--gris); font-size: .9rem; }
+    .paso { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 16px; margin-top: 16px; }
+    .paso h2 { font-size: 1rem; margin-bottom: 10px; }
+    .qr { display: block; width: 200px; margin: 0 auto 10px; border-radius: 8px; }
+    .dato { font-size: .875rem; text-align: center; }
+    .dato b { font-size: 1rem; }
+    input[type=email] { width: 100%; padding: 10px; border: 1px solid var(--borde); border-radius: 8px; background: var(--fondo); color: var(--texto); font-size: 1rem; margin-bottom: 10px; }
+    input[type=file] { margin-bottom: 12px; font-size: .875rem; }
+    button { width: 100%; background: var(--acento); color: #fff; border: none; padding: 12px; border-radius: 10px; font-size: 1rem; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    #mensaje { margin-top: 10px; font-size: .9rem; }
+    .ok { color: #16a34a; } .error { color: #dc2626; }
+    .nota { font-size: .75rem; color: var(--gris); margin-top: 14px; line-height: 1.5; }

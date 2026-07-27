@@ -2,9 +2,9 @@
 // EL ACTUALIZADOR (se ejecuta cada minuto)
 // Ahora con 6 fuentes: BCB, paralelo.bo, Binance USDT, Binance USDC, Takenos, Meru
 // =====================================================================
-const db = require('./db');
-const cache = require('./cache');
-const { fetchBCB, fetchParalelo, fetchBinanceUSDT, fetchBinanceUSDC, fetchTakenos, fetchMeru } = require('./fuentes');
+const db = require('../config/db');
+const cache = require('../config/cache');
+const { fetchBCB, fetchParalelo, fetchBinanceUSDT, fetchBinanceUSDC, fetchTakenos, fetchMeru, fetchBolidolar } = require('./fuentes');
 
 let contadorCorridas = 0;
 
@@ -15,17 +15,44 @@ async function restaurarHistorico() {
       cache.history = respaldo;
       console.log(`📊 Histórico restaurado: ${respaldo.length} puntos`);
     }
+    const respaldoDiario = await db.get('historyDaily:respaldo');
+    if (Array.isArray(respaldoDiario)) {
+      cache.historyDaily = respaldoDiario;
+      console.log(`📊 Histórico diario restaurado: ${respaldoDiario.length} puntos`);
+    }
   } catch (e) {
     console.error('Error restaurando histórico:', e.message);
   }
 }
 
 function asegurarHistoricoInicial(tasas) {
+  const baseParalelo = tasas.paralelo?.buy || 11.74;
+
+  // Sembrar 45 días de datos diarios para el pronóstico si no hay
+  if (cache.historyDaily.length < 14) {
+    console.log('Seeding 45 days of daily historical data for forecast...');
+    const ahora = Date.now();
+    cache.historyDaily = [];
+    let valorSimulado = baseParalelo - 0.50; // empezar más bajo hace 45 días
+    
+    for (let i = 45; i >= 1; i--) {
+      const variacionDiaria = (Math.random() - 0.4) * 0.04; // tendencia ligeramente alcista
+      valorSimulado += variacionDiaria;
+      if (i === 1) valorSimulado = baseParalelo; // forzar a que el último día sea exacto
+      
+      cache.historyDaily.push({
+        fecha: ahora - i * 24 * 60 * 60 * 1000,
+        valor: parseFloat(valorSimulado.toFixed(2)),
+        oficial: 6.96
+      });
+    }
+  }
+
+  // Sembrar 24h de puntos de 15 min si no hay
   if (cache.history.length >= 10 && cache.history[cache.history.length - 1]?.binanceUsdt && cache.history[cache.history.length - 1]?.takenos) return;
   console.log('Seeding initial 24h historical data for chart...');
   const baseUsdt = tasas.binanceUsdt?.buy || 10.72;
   const baseUsdc = tasas.binanceUsdc?.buy || 10.71;
-  const baseParalelo = tasas.paralelo?.buy || 10.74;
   const baseTakenos = tasas.takenos?.buy || 10.93;
   const baseMeru = tasas.meru?.buy || 11.09;
 
@@ -44,24 +71,29 @@ function asegurarHistoricoInicial(tasas) {
       meru: parseFloat((baseMeru + variacion * 0.85).toFixed(2)),
     });
   }
-  cache.history = [...puntos, ...cache.history];
+  cache.history = puntos;
 }
 
 async function actualizar(bot) {
   contadorCorridas++;
 
-  // PASO 1: pedir las 6 fuentes (incluyendo Binance USDT, Binance USDC, Takenos y Meru)
-  const [bcb, paralelo, binanceUsdt, binanceUsdc, takenos, meru] = await Promise.all([
+  // PASO 1a: pedir las 4 fuentes principales
+  const [bcb, paralelo, binanceUsdt, binanceUsdc] = await Promise.all([
     fetchBCB(),
     fetchParalelo(),
     fetchBinanceUSDT(),
-    fetchBinanceUSDC(),
+    fetchBinanceUSDC()
+  ]);
+  
+  // PASO 1b: pedir Takenos, Meru y Bolidolar (ahora sin fallbacks)
+  const [takenos, meru, bolidolar] = await Promise.all([
     fetchTakenos(),
     fetchMeru(),
+    fetchBolidolar()
   ]);
 
   // PASO 2: a la memoria rápida del servidor
-  cache.rates = { bcb, paralelo, binanceUsdt, binanceUsdc, takenos, meru, updatedAt: Date.now() };
+  cache.rates = { bcb, paralelo, binanceUsdt, binanceUsdc, takenos, meru, bolidolar, updatedAt: Date.now() };
 
   // Asegurar historial para el gráfico
   asegurarHistoricoInicial({ binanceUsdt, binanceUsdc, paralelo, takenos, meru });
@@ -70,14 +102,31 @@ async function actualizar(bot) {
   const referencia = binanceUsdt?.buy || paralelo?.buy || 10.70;
   cache.history.push({
     time: Date.now(),
-    value: referencia,
+    value: binanceUsdt?.buy || referencia,
     binanceUsdt: binanceUsdt?.buy || referencia,
     binanceUsdc: binanceUsdc?.buy || referencia,
     paralelo: paralelo?.buy || referencia,
-    takenos: takenos?.buy || parseFloat((referencia + 0.22).toFixed(2)),
-    meru: meru?.buy || parseFloat((referencia + 0.38).toFixed(2)),
+    bolidolar: bolidolar?.buy || null,
+    takenos: takenos?.buy || null,
+    meru: meru?.buy || null,
   });
   if (cache.history.length > 2000) cache.history.shift();
+
+  // Guardar punto diario (solo 1 al día)
+  const ahora = Date.now();
+  const ultimoDia = cache.historyDaily.length > 0 ? cache.historyDaily[cache.historyDaily.length - 1] : null;
+  if (!ultimoDia || (ahora - ultimoDia.fecha) > 24 * 60 * 60 * 1000) {
+    cache.historyDaily.push({
+      fecha: ahora,
+      valor: paralelo?.buy || referencia,
+      oficial: bcb?.sell || 6.96
+    });
+    if (cache.historyDaily.length > 500) cache.historyDaily.shift();
+  } else {
+    // Actualizar el valor de hoy con el más reciente
+    ultimoDia.valor = paralelo?.buy || referencia;
+    ultimoDia.fecha = ahora; // refrescar la hora
+  }
 
   // PASO 4: revisar alertas
   if (bot) {
@@ -110,11 +159,11 @@ async function actualizar(bot) {
   if (contadorCorridas % 15 === 1) {
     try {
       await db.set('history:respaldo', cache.history);
+      await db.set('historyDaily:respaldo', cache.historyDaily);
     } catch (e) {
       console.error('Error respaldando histórico:', e.message);
     }
   }
-
   console.log(`[${new Date().toLocaleTimeString('es-BO')}] ✓ Cotizaciones actualizadas. Paralelo: ${referencia}`);
 }
 

@@ -18,8 +18,8 @@
 //   /rechazar <id>              rechazar un comprobante
 // =====================================================================
 const { Bot } = require('grammy');
-const db = require('./db');
-const cache = require('./cache');
+const db = require('../config/db');
+const cache = require('../config/cache');
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 
@@ -113,8 +113,23 @@ bot.command('aprobar', async (ctx) => {
     return ctx.reply('Solicitud no encontrada o ya procesada.');
   }
   await db.hset('premium:solicitud:' + id, { status: 'approved' });
-  await db.set('premium:' + String(solicitud.email).toLowerCase(), true, { ex: 60 * 60 * 24 * 31 });
-  await ctx.reply(`✅ Premium activado para ${solicitud.email} (vence en 31 días)`);
+  const email = String(solicitud.email).toLowerCase();
+  
+  // Guardar en Redis para compatibilidad
+  await db.set('premium:' + email, true, { ex: 60 * 60 * 24 * 31 });
+  
+  // Guardar en PostgreSQL si el usuario existe
+  try {
+    const pg = require('../config/postgres');
+    await pg.query(
+      `UPDATE users SET is_premium = true, premium_until = NOW() + INTERVAL '31 days' WHERE email = $1`,
+      [email]
+    );
+  } catch (err) {
+    console.error('Error actualizando postgres:', err);
+  }
+  
+  await ctx.reply(`✅ Premium activado para ${email} (vence en 31 días)`);
 });
 
 bot.command('rechazar', async (ctx) => {

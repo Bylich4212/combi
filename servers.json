@@ -1,0 +1,13 @@
+{
+    "Servers": {
+        "1": {
+            "Name": "Base de Datos Cambi",
+            "Group": "Servers",
+            "Host": "db",
+            "Port": 5432,
+            "MaintenanceDB": "cambi_db",
+            "Username": "admin",
+            "SSLMode": "prefer"
+        }
+    }
+}

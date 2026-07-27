@@ -12,7 +12,7 @@
 // Nota: si una fuente falla o si el admin sobreescribe en Telegram,
 // caemos a lo último guardado en Redis.
 // =====================================================================
-const db = require('./db');
+const db = require('../config/db');
 
 // Valores de emergencia para el primer día
 const RESPALDO = {
@@ -122,7 +122,7 @@ async function fetchBinanceUSDC() {
   return fetchBinanceP2P('USDC');
 }
 
-// ========== 5. TAKENOS (API / cálculo automatizado en vivo) ==========
+// ========== 5. TAKENOS (API) ==========
 async function fetchTakenos() {
   try {
     const fetch = globalThis.fetch || require('node-fetch');
@@ -135,39 +135,24 @@ async function fetchTakenos() {
     });
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data)) {
-        const bobItem = data.find(item => item.currency === 'BOB' || item.pair === 'BOB/USD');
-        if (bobItem && bobItem.buy && bobItem.sell) {
-          return {
-            buy: parseFloat(bobItem.buy),
-            sell: parseFloat(bobItem.sell),
-            timestamp: Date.now()
-          };
-        }
+      const bo = data.find(d => d.currency === 'BOB' || d.currency === 'BO');
+      if (bo) {
+        return {
+          buy: parseFloat(bo.buy),
+          sell: parseFloat(bo.sell),
+          timestamp: Date.now()
+        };
       }
     }
   } catch (e) {
     console.error('Error consultando API Takenos:', e.message);
   }
-
-  // Respaldo automatizado: si la API no retorna BOB directo, se calcula del mercado P2P en vivo
-  // (+0.22 Bs sobre Binance USDT según spread actual en Bolivia para depósitos QR), preservando override manual si es reciente.
-  try {
-    const guardado = await ultimoGuardado('takenos');
-    if (guardado && guardado.timestamp && (Date.now() - guardado.timestamp < 2 * 60 * 60 * 1000) && guardado.timestamp > 0) {
-      return guardado;
-    }
-    const base = await ultimoGuardado('binanceUsdt') || await ultimoGuardado('paralelo');
-    const baseVal = base?.buy || 10.71;
-    const buy = parseFloat((baseVal + 0.22).toFixed(2));
-    const sell = parseFloat((buy - 0.05).toFixed(2));
-    return { buy, sell, timestamp: Date.now() };
-  } catch {
-    return ultimoGuardado('takenos');
-  }
+  
+  // Si la API falla o no tiene BOB, devolvemos 0 para no inventar datos
+  return { buy: 0, sell: 0, timestamp: Date.now() };
 }
 
-// ========== 6. MERU (API / cálculo automatizado en vivo) ==========
+// ========== 6. MERU (API) ==========
 async function fetchMeru() {
   try {
     const fetch = globalThis.fetch || require('node-fetch');
@@ -194,20 +179,61 @@ async function fetchMeru() {
     console.error('Error consultando API Meru:', e.message);
   }
 
-  // Respaldo automatizado: si la API no retorna BO directo, se calcula del mercado en vivo
-  // (+0.38 Bs sobre Binance USDC según spread actual en Bolivia para depósitos QR, dando ~11.09), preservando override manual si es reciente.
+  // Si la API falla o no tiene BOB, devolvemos 0 para no inventar datos
+  return { buy: 0, sell: 0, timestamp: Date.now() };
+}
+
+// ========== 7. BOLIDOLAR (Precio Calle) ==========
+async function fetchBolidolar() {
   try {
-    const guardado = await ultimoGuardado('meru');
-    if (guardado && guardado.timestamp && (Date.now() - guardado.timestamp < 2 * 60 * 60 * 1000) && guardado.timestamp > 0) {
-      return guardado;
+    const fetch = globalThis.fetch || require('node-fetch');
+    const res = await fetch('https://www.bolidolar.com/api/exchange-rate?cache=true&department=santa-cruz', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.data && data.data.rate) {
+        const val = parseFloat(data.data.rate);
+        return {
+          buy: val,
+          sell: parseFloat((val - 0.05).toFixed(2)),
+          timestamp: Date.now()
+        };
+      }
     }
-    const base = await ultimoGuardado('binanceUsdc') || await ultimoGuardado('binanceUsdt') || await ultimoGuardado('paralelo');
-    const baseVal = base?.buy || 10.71;
-    const buy = parseFloat((baseVal + 0.38).toFixed(2));
-    const sell = parseFloat((buy - 0.05).toFixed(2));
-    return { buy, sell, timestamp: Date.now() };
-  } catch {
-    return ultimoGuardado('meru');
+  } catch (e) {
+    console.error('Error consultando API Bolidolar:', e.message);
+  }
+  return { buy: 0, sell: 0, timestamp: Date.now() };
+}
+
+// ========== 8. DUKASCOPY (Banco Suizo) - Histórico para Forex ==========
+async function fetchDukascopyHistory(instrument = 'eurusd', days = 45) {
+  try {
+    const { getHistoricalRates } = require('dukascopy-node');
+    const to = new Date();
+    const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
+    
+    const data = await getHistoricalRates({
+      instrument,
+      dates: { from, to },
+      timeframe: 'd1',
+      format: 'json'
+    });
+    
+    // Transformar al formato que espera el motor de pronóstico (array de { valor: cierres, oficial: 0 })
+    return data.map(d => ({
+      fecha: d.timestamp,
+      valor: d.close,
+      oficial: d.close // no hay paralelo
+    }));
+  } catch (e) {
+    console.error(`Error consultando Dukascopy para ${instrument}:`, e.message);
+    return [];
   }
 }
 
@@ -218,4 +244,6 @@ module.exports = {
   fetchBinanceUSDC,
   fetchTakenos,
   fetchMeru,
+  fetchBolidolar,
+  fetchDukascopyHistory
 };

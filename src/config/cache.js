@@ -13,5 +13,6 @@
 module.exports = {
   rates: null,   // las últimas cotizaciones (lo que ve la página)
   history: [],   // puntos del gráfico: { time, value }
+  historyDaily: [], // puntos diarios para el motor de pronóstico (USD/BOB)
   avisados: new Map(), // anti-spam de alertas: chatId -> hora del último aviso
 };

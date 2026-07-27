@@ -6,121 +6,67 @@
      pide los precios a /api/rates cada 60 segundos y arma las tarjetas.
      ===================================================================== -->
 <html lang="es-BO">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CotiBO — Dólar en Bolivia hoy</title>
-  <meta name="description" content="Precio del dólar en Bolivia en tiempo real: oficial BCB, paralelo, Binance P2P, Takenos, Meru y Airtm. Calculadora y alertas por Telegram.">
+  <meta name="description"
+    content="Precio del dólar en Bolivia en tiempo real: oficial BCB, paralelo, Binance P2P, Takenos, Meru y Airtm. Calculadora y alertas por Telegram.">
   <meta property="og:title" content="CotiBO — Dólar en Bolivia hoy">
   <meta property="og:description" content="Cotizaciones USD/BOB en tiempo real de 6 fuentes.">
-  <link rel="icon" href="/icon.png">
+  <link rel="icon" href="/logo.png">
   <link rel="manifest" href="/manifest.json">
 
   <!-- Librería del gráfico de velas (desde CDN, no hay que instalar nada) -->
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 
+  <!-- Chart.js para el gráfico de pronóstico (fan chart / monte carlo) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <!-- Google AdSense: cuando te aprueben, reemplaza ca-pub-XXXX por tu ID -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+    crossorigin="anonymous"></script>
 
-  <style>
-    /* ============ ESTILOS ============ */
-    :root {
-      --fondo: #ffffff; --texto: #111827; --gris: #6b7280;
-      --tarjeta: #f9fafb; --borde: #e5e7eb; --acento: #2563eb;
-      --resaltado: #fefce8; --resaltado-borde: #fde047;
-    }
-    /* Modo oscuro automático según el celular del visitante */
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --fondo: #0a0a0f; --texto: #f3f4f6; --gris: #9ca3af;
-        --tarjeta: #16161f; --borde: #2a2a35; --acento: #60a5fa;
-        --resaltado: #2a2410; --resaltado-borde: #a16207;
-      }
-    }
-    * { box-sizing: border-box; margin: 0; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: var(--fondo); color: var(--texto);
-      max-width: 640px; margin: 0 auto; padding: 16px 16px 80px;
-    }
-    header { display: flex; justify-content: space-between; align-items: center; }
-    h1 { font-size: 2rem; font-weight: 800; }
-    .sub { color: var(--gris); font-size: .875rem; }
-    a { color: var(--acento); }
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
 
-    .brecha {
-      display: flex; align-items: center; gap: 8px; margin-top: 10px;
-      background: var(--tarjeta); border: 1px solid var(--borde);
-      padding: 8px 12px; border-radius: 10px; font-size: .875rem;
-    }
-    .brecha .barra { flex: 1; max-width: 120px; height: 6px; background: var(--borde); border-radius: 99px; overflow: hidden; }
-    .brecha .barra > div { height: 100%; background: #eab308; }
-
-    .tarjetas { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
-    .tarjeta {
-      background: var(--tarjeta); border: 1px solid var(--borde);
-      border-radius: 14px; padding: 14px; transition: transform 0.2s ease, border-color 0.2s ease;
-      cursor: pointer; position: relative;
-    }
-    .tarjeta:hover { transform: translateY(-2px); border-color: var(--acento); }
-    .tarjeta.destacada { background: var(--resaltado); border-color: var(--resaltado-borde); }
-    .tarjeta h3 { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--gris); margin-bottom: 6px; }
-    .tarjeta .fila { display: flex; justify-content: space-between; font-size: .875rem; padding: 2px 0; }
-    .tarjeta .valor { font-weight: 600; font-variant-numeric: tabular-nums; }
-    .tarjeta .unico { font-size: 1.4rem; font-weight: 700; }
-    .tarjeta .unico small { font-size: .8rem; font-weight: 400; }
-    .badge-grafico { font-size: .65rem; color: var(--gris); margin-top: 6px; display: block; text-align: right; font-weight: 500; }
-
-    .caja {
-      background: var(--tarjeta); border: 1px solid var(--borde);
-      border-radius: 14px; padding: 16px; margin-top: 20px;
-    }
-    .caja h2 { font-size: 1.1rem; margin-bottom: 12px; }
-    .calc-entrada { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 1.25rem; }
-    .calc-entrada input {
-      width: 110px; font-size: 1.25rem; background: transparent; color: var(--texto);
-      border: none; border-bottom: 2px solid var(--borde); outline: none; padding: 2px;
-    }
-    .calc-fila { display: flex; justify-content: space-between; padding: 8px 10px; border-radius: 8px; }
-    .calc-fila.mejor { background: var(--resaltado); font-weight: 600; }
-    .num { font-variant-numeric: tabular-nums; }
-
-    #grafico { height: 240px; border: 1px solid var(--borde); border-radius: 14px; margin-top: 14px; overflow: hidden; }
-    .grafico-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
-    .grafico-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-    .tab-btn {
-      background: var(--fondo); color: var(--texto); border: 1px solid var(--borde);
-      padding: 6px 12px; border-radius: 8px; font-size: .8rem; font-weight: 500; cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .tab-btn:hover { border-color: var(--acento); }
-    .tab-btn.activo { background: var(--acento); color: #fff; border-color: var(--acento); font-weight: 600; }
-
-    .boton {
-      display: inline-block; background: var(--acento); color: #fff;
-      padding: 10px 16px; border-radius: 10px; text-decoration: none;
-      border: none; font-size: 1rem; cursor: pointer;
-    }
-    .esqueleto { animation: pulso 1.4s infinite; background: var(--tarjeta); border-radius: 14px; }
-    @keyframes pulso { 50% { opacity: .5; } }
-    @media (prefers-reduced-motion: reduce) { .esqueleto { animation: none; } }
-    footer { text-align: center; color: var(--gris); font-size: .75rem; margin-top: 28px; line-height: 1.5; }
-  </style>
+  <link rel="stylesheet" href="/css/style.css">
 </head>
+
 <body>
 
   <header>
-    <div>
-      <h1>Cambi</h1>
-      <p class="sub">Cotizaciones del dólar en Bolivia</p>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <img src="/assets/logo.png" alt="Logo Cambi"
+        style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+      <div>
+        <h1>Cambi</h1>
+        <p class="sub">Cotizaciones del dólar en Bolivia</p>
+      </div>
     </div>
-    <a href="/premium.html" id="link-premium">Quitar anuncios</a>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div id="auth-buttons" style="display: flex; gap: 10px;">
+        <button onclick="openAuthModal('login')" class="btn-outline">Iniciar sesión</button>
+        <button onclick="openAuthModal('register')" class="btn-primary">Crear cuenta</button>
+      </div>
+      <div id="user-info" style="display: none; align-items: center; gap: 10px;">
+        <span id="user-email" style="font-size: 0.9rem; color: var(--gris);"></span>
+        <button onclick="logout()" class="btn-outline" style="padding: 4px 8px; font-size: 0.8rem;">Salir</button>
+      </div>
+      <a href="/premium.html" id="link-premium">Quitar anuncios</a>
+    </div>
   </header>
 
   <!-- Brecha entre el dólar oficial y el de mercado -->
-  <div class="brecha" id="brecha" hidden>
+  <div class="brecha glass" id="brecha" hidden>
     <span id="brecha-texto"></span>
-    <div class="barra"><div id="brecha-barra"></div></div>
+    <div class="barra">
+      <div id="brecha-barra"></div>
+    </div>
   </div>
 
   <!-- Aquí el JavaScript dibuja las 6 tarjetas -->
@@ -135,43 +81,106 @@
 
   <!-- Anuncio (se esconde solo si el visitante es premium) -->
   <div id="anuncio">
-    <ins class="adsbygoogle" style="display:block"
-      data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-      data-ad-slot="1234567890"
+    <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="1234567890"
       data-ad-format="auto" data-full-width-responsive="true"></ins>
   </div>
 
   <!-- Calculadora -->
-  <div class="caja">
+  <div class="caja glass">
     <h2>💰 ¿Cuánto recibo?</h2>
     <div class="calc-entrada">
       <span>$</span>
-      <input type="number" id="monto" value="100" min="0" aria-label="Monto en dólares">
+      <input type="number" id="monto" value="1" min="0" aria-label="Monto en dólares">
       <span class="sub">USD</span>
     </div>
     <div id="calc-resultados"></div>
   </div>
 
+  <!-- MERCADO P2P -->
+  <div class="caja glass" style="margin-top: 24px;">
+    <div
+      style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <h2>🤝 Mercado Libre (Anuncios P2P)</h2>
+        <p class="sub">Compra y vende dólares directamente con otras personas</p>
+      </div>
+      <button onclick="openP2pModal()" class="btn-primary" id="btn-publicar-p2p">+ Publicar Anuncio</button>
+    </div>
+
+    <div id="p2p-cargando" style="padding: 20px; text-align: center; color: var(--gris);">
+      Cargando anuncios...
+    </div>
+
+    <div id="p2p-lista" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+      <!-- Las tarjetas de anuncios se llenan por JS -->
+    </div>
+  </div>
+
   <!-- Gráfico de velas interactivo (pestañas para Binance USDT, Binance USDC o Paralelo) -->
-  <div class="caja" id="caja-grafico">
+  <div class="caja glass" id="caja-grafico">
     <div class="grafico-header">
       <div>
-        <h2 id="grafico-titulo">📈 Gráfico — Binance USDT / BOB</h2>
+        <h2 id="grafico-titulo">📈 Gráfico — P2P USDT / BOB</h2>
         <p class="sub" style="margin-top:2px;">Cotización P2P en velas de 15 minutos</p>
       </div>
       <div class="grafico-tabs">
-        <button class="tab-btn activo" id="tab-binanceUsdt" onclick="cambiarFuenteGrafico('binanceUsdt', 'Binance USDT / BOB')">💛 USDT Binance</button>
-        <button class="tab-btn" id="tab-binanceUsdc" onclick="cambiarFuenteGrafico('binanceUsdc', 'Binance USDC / BOB')">💙 USDC Binance</button>
-        <button class="tab-btn" id="tab-paralelo" onclick="cambiarFuenteGrafico('paralelo', 'Paralelo P2P / BOB')">🏚 Paralelo P2P</button>
-        <button class="tab-btn" id="tab-takenos" onclick="cambiarFuenteGrafico('takenos', 'Takenos / BOB')">🟣 Takenos</button>
+        <button class="tab-btn activo" id="tab-paralelo" onclick="cambiarFuenteGrafico('paralelo', 'P2P USDT / BOB')">💛
+          P2P USDT</button>
+        <button class="tab-btn" id="tab-binanceUsdc" onclick="cambiarFuenteGrafico('binanceUsdc', 'P2P USDC / BOB')">💙
+          P2P USDC</button>
+        <button class="tab-btn" id="tab-bolidolar" onclick="cambiarFuenteGrafico('bolidolar', 'Precio Calle / BOB')">💵
+          Precio Calle</button>
+        <button class="tab-btn" id="tab-takenos" onclick="cambiarFuenteGrafico('takenos', 'Takenos / BOB')">🟣
+          Takenos</button>
         <button class="tab-btn" id="tab-meru" onclick="cambiarFuenteGrafico('meru', 'Meru / BOB')">🟢 Meru</button>
       </div>
     </div>
     <div id="grafico"></div>
   </div>
 
+  <!-- SECCIÓN PREMIUM: MOTOR DE PRONÓSTICO INTERNACIONAL -->
+  <div class="caja glass" style="margin-top: 24px;">
+    <h2>🔮 Pronóstico Premium (Dólar Paralelo / BOB)</h2>
+    <p class="sub" style="margin-bottom:16px">
+      Motor estadístico GARCH(1,1) + Kalman + Monte Carlo (10,000 caminos) pronosticando el precio en la calle.
+    </p>
+
+    <div id="pronostico-cargando" style="display: none; padding: 20px; text-align: center; color: var(--gris);">
+      ⏳ Ejecutando motor de Monte Carlo...
+    </div>
+
+    <div id="pronostico-resultado" style="display: none;">
+      <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div class="tarjeta">
+          <div class="sub">Valor Actual</div>
+          <div class="monto" id="p-actual">0.0000</div>
+        </div>
+        <div class="tarjeta">
+          <div class="sub">Probabilidad de Subida (7d)</div>
+          <div class="monto" id="p-subida">0%</div>
+        </div>
+        <div class="tarjeta">
+          <div class="sub">Valor Esperado en 7 días</div>
+          <div class="monto" id="p-esperado">0.0000</div>
+        </div>
+        <div class="tarjeta">
+          <div class="sub">Rango de Confianza (95%)</div>
+          <div class="monto" id="p-rango" style="font-size: 1.2rem;">0.00 - 0.00</div>
+        </div>
+      </div>
+
+      <div style="height: 300px; width: 100%; margin-top: 16px;">
+        <canvas id="grafico-pronostico"></canvas>
+      </div>
+
+      <p id="p-veredicto" class="sub"
+        style="margin-top: 12px; font-weight: 500; text-align: center; color: var(--acento);"></p>
+    </div>
+  </div>
+
   <!-- Alertas por Telegram -->
-  <div class="caja">
+  <div class="caja glass">
     <h2>🔔 Alertas gratis por Telegram</h2>
     <p class="sub" style="margin-bottom:12px">
       Escríbele a nuestro bot <b>/alerta 10.80</b> y te avisará al instante
@@ -187,160 +196,45 @@
     Los valores son referenciales y no constituyen una oferta de cambio.
   </footer>
 
-  <script>
-    // =================================================================
-    // JAVASCRIPT DE LA PÁGINA
-    // 1. Pide /api/rates y dibuja las tarjetas + calculadora
-    // 2. Pide /api/history y dibuja el gráfico
-    // 3. Repite el paso 1 cada 60 segundos
-    // =================================================================
+  <div id="auth-modal" class="modal" hidden>
+    <div class="modal-content glass">
+      <span class="close-modal" onclick="closeAuthModal()">&times;</span>
+      <h2 id="auth-title">Iniciar Sesión</h2>
+      <form id="auth-form" onsubmit="handleAuth(event)">
+        <input type="email" id="auth-email" placeholder="Correo electrónico" required class="auth-input">
+        <input type="password" id="auth-password" placeholder="Contraseña" required class="auth-input">
+        <p id="auth-error" style="color: #ef4444; font-size: 0.85rem; margin-top: 5px; display: none;"></p>
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 15px;"
+          id="auth-submit-btn">Ingresar</button>
+      </form>
+    </div>
+  </div>
 
-    let datos = null; // aquí guardamos las últimas cotizaciones
+  <div id="p2p-modal" class="modal" hidden>
+    <div class="modal-content glass">
+      <span class="close-modal" onclick="closeP2pModal()">&times;</span>
+      <h2>Publicar Anuncio</h2>
+      <form id="p2p-form" onsubmit="handleP2pSubmit(event)">
+        <select id="p2p-type" class="auth-input" required>
+          <option value="VENTA">Quiero Vender Dólares</option>
+          <option value="COMPRA">Quiero Comprar Dólares</option>
+        </select>
+        <input type="number" id="p2p-amount" placeholder="Cantidad de Dólares (ej. 1000)" required class="auth-input"
+          step="0.01">
+        <input type="number" id="p2p-rate" placeholder="Tipo de cambio en Bs (ej. 11.20)" required class="auth-input"
+          step="0.01">
+        <input type="text" id="p2p-phone" placeholder="Número de WhatsApp (ej. 71234567)" required class="auth-input">
+        <textarea id="p2p-desc" placeholder="Condiciones (ej. Solo transferencia BNB, no cara chica)" class="auth-input"
+          style="resize: vertical; height: 80px;"></textarea>
 
-    const fmt = (n) => (n ? Number(n).toFixed(2) : '--');
+        <p id="p2p-error" style="color: #ef4444; font-size: 0.85rem; margin-top: 5px; display: none;"></p>
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 15px;" id="p2p-submit-btn">Publicar
+          Anuncio</button>
+      </form>
+    </div>
+  </div>
 
-    // ---- Dibujar una tarjeta con compra y venta ----
-    function tarjetaHTML(titulo, r, destacada, claveGrafico) {
-      const click = claveGrafico ? `onclick="cambiarFuenteGrafico('${claveGrafico}', '${titulo}')" title="Haz clic para ver ${titulo} en el gráfico"` : '';
-      return `
-        <div class="tarjeta ${destacada ? 'destacada' : ''}" ${click}>
-          <h3>${titulo}</h3>
-          <div class="fila"><span>Compra</span><span class="valor">${fmt(r?.buy)}</span></div>
-          <div class="fila"><span>Venta</span><span class="valor">${fmt(r?.sell)}</span></div>
-          ${claveGrafico ? `<span class="badge-grafico">📊 Ver en gráfico →</span>` : ''}
-        </div>`;
-    }
-
-    // ---- Dibujar todo con los datos recibidos ----
-    function dibujar() {
-      const d = datos;
-
-      // Las 6 tarjetas: BCB, Paralelo P2P, Binance USDT, Binance USDC, Takenos, Meru
-      document.getElementById('tarjetas').innerHTML =
-        tarjetaHTML('Oficial BCB', d.bcb) +
-        tarjetaHTML('Paralelo P2P', d.paralelo, false, 'paralelo') +
-        tarjetaHTML('Binance USDT / BOB', d.binanceUsdt, true, 'binanceUsdt') +
-        tarjetaHTML('Binance USDC / BOB', d.binanceUsdc, true, 'binanceUsdc') +
-        tarjetaHTML('Takenos', d.takenos, false, 'takenos') +
-        tarjetaHTML('Meru', d.meru, false, 'meru');
-
-      // La brecha oficial vs mercado
-      const mercado = d.binanceUsdt?.buy || d.paralelo?.buy;
-      if (mercado && d.bcb?.sell) {
-        const brecha = ((mercado - d.bcb.sell) / d.bcb.sell) * 100;
-        document.getElementById('brecha').hidden = false;
-        document.getElementById('brecha-texto').textContent = 'Brecha oficial vs mercado: ' + brecha.toFixed(1) + '%';
-        document.getElementById('brecha-barra').style.width = Math.min(Math.abs(brecha), 100) + '%';
-      }
-
-      // Fecha de actualización
-      document.getElementById('actualizado').textContent =
-        'Actualizado: ' + new Date(d.updatedAt).toLocaleTimeString('es-BO');
-
-      calcular(); // refrescar la calculadora
-    }
-
-    // ---- La calculadora: multiplica y ordena de mejor a peor ----
-    function calcular() {
-      if (!datos) return;
-      const monto = Math.max(0, Number(document.getElementById('monto').value) || 0);
-      const opciones = [
-        { nombre: 'Binance USDT', valor: datos.binanceUsdt?.buy },
-        { nombre: 'Binance USDC', valor: datos.binanceUsdc?.buy },
-        { nombre: 'Paralelo P2P', valor: datos.paralelo?.buy },
-        { nombre: 'Takenos', valor: datos.takenos?.buy },
-        { nombre: 'Meru', valor: datos.meru?.buy },
-        { nombre: 'Oficial BCB', valor: datos.bcb?.sell },
-      ]
-        .filter((o) => o.valor > 0)          // ocultar fuentes sin datos
-        .sort((a, b) => b.valor - a.valor);  // la mejor tasa primero
-
-      document.getElementById('calc-resultados').innerHTML = opciones
-        .map((o, i) => `
-          <div class="calc-fila ${i === 0 ? 'mejor' : ''}">
-            <span>${o.nombre}${i === 0 ? ' 🏆' : ''}</span>
-            <span class="num">${(monto * o.valor).toFixed(2)} BOB</span>
-          </div>`)
-        .join('');
-    }
-    document.getElementById('monto').addEventListener('input', calcular);
-
-    // ---- Pedir las cotizaciones al servidor ----
-    async function cargarRates() {
-      try {
-        const res = await fetch('/api/rates');
-        if (!res.ok) return;
-        datos = await res.json();
-        dibujar();
-      } catch (e) { console.error(e); }
-    }
-
-    // ---- El gráfico de velas ----
-    let grafico = null, serie = null, fuenteGrafico = 'binanceUsdt';
-
-    async function cargarGrafico() {
-      try {
-        const res = await fetch('/api/history?fuente=' + fuenteGrafico);
-        const velas = await res.json();
-        const cont = document.getElementById('grafico');
-        if (!Array.isArray(velas) || velas.length === 0) {
-          cont.innerHTML =
-            '<p class="sub" style="padding:16px">El gráfico se irá llenando con el histórico del dólar.</p>';
-          return;
-        }
-        if (!grafico) {
-          cont.innerHTML = ''; // Limpiar si antes había un texto
-          const oscuro = matchMedia('(prefers-color-scheme: dark)').matches;
-          grafico = LightweightCharts.createChart(cont, {
-            width: cont.clientWidth, height: 240,
-            layout: { background: { color: 'transparent' }, textColor: '#999' },
-            grid: { vertLines: { color: 'rgba(150,150,150,.1)' }, horzLines: { color: 'rgba(150,150,150,.1)' } },
-            timeScale: { timeVisible: true, secondsVisible: false },
-          });
-          serie = grafico.addCandlestickSeries({
-            upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
-            wickUpColor: '#26a69a', wickDownColor: '#ef5350',
-          });
-          addEventListener('resize', () => grafico.applyOptions({ width: cont.clientWidth }));
-        }
-        serie.setData(velas);
-        grafico.timeScale().fitContent();
-      } catch (e) { console.error(e); }
-    }
-
-    function cambiarFuenteGrafico(nuevaFuente, titulo) {
-      fuenteGrafico = nuevaFuente;
-      const nombres = { binanceUsdt: 'Binance USDT / BOB', binanceUsdc: 'Binance USDC / BOB', paralelo: 'Paralelo P2P / BOB', takenos: 'Takenos / BOB', meru: 'Meru / BOB' };
-      document.getElementById('grafico-titulo').textContent = '📈 Gráfico — ' + (titulo || nombres[nuevaFuente] || nuevaFuente);
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('activo'));
-      const tabActual = document.getElementById('tab-' + nuevaFuente);
-      if (tabActual) tabActual.classList.add('activo');
-      
-      document.getElementById('caja-grafico').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      cargarGrafico();
-    }
-
-    // ---- ¿El visitante es premium? Entonces esconder el anuncio ----
-    async function revisarPremium() {
-      const email = localStorage.getItem('cotibo_email');
-      if (!email) return;
-      try {
-        const res = await fetch('/api/premium/status?email=' + encodeURIComponent(email));
-        const d = await res.json();
-        if (d.premium) {
-          document.getElementById('anuncio').remove();
-          document.getElementById('link-premium').textContent = 'Premium activo ⭐';
-        }
-      } catch {}
-    }
-
-    // ---- Encender todo ----
-    cargarRates();
-    cargarGrafico();
-    revisarPremium();
-    setInterval(cargarRates, 60000);   // repetir cada 60 segundos
-    setInterval(cargarGrafico, 60000);
-    try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
-  </script>
+  <script src="/js/main.js"></script>
 </body>
+
 </html>
