@@ -4,6 +4,8 @@ import RatesGrid from './components/RatesGrid';
 import Calculator from './components/Calculator';
 import P2PMarket from './components/P2PMarket';
 import AuthModal from './components/AuthModal';
+import RegionalRates from './components/RegionalRates';
+import ForecastWidget from './components/ForecastWidget';
 
 function App() {
   const [rates, setRates] = useState(null);
@@ -60,11 +62,15 @@ function App() {
         onLogout={handleLogout}
       />
 
-      <RatesGrid rates={rates} />
-
-      <Calculator rates={rates} />
-
-      <P2PMarket token={token} onRequireAuth={() => setAuthMode('login')} />
+      {rates && (
+        <>
+          <RatesGrid rates={rates} />
+          <ForecastWidget token={token} onRequireAuth={() => setAuthMode('login')} />
+          <RegionalRates bolidolar={rates.bolidolar} />
+          <Calculator rates={rates} />
+          <P2PMarket token={token} onRequireAuth={() => setAuthMode('login')} />
+        </>
+      )}
 
       <div className="caja glass" style={{ marginTop: '24px' }}>
         <h2>🔔 Alertas gratis por Telegram</h2>

@@ -42,14 +42,31 @@ async function pedirJSON(url) {
   return res.json();
 }
 
-// ========== 1. OFICIAL BCB (automático) ==========
+// ========== 1. BANCO CENTRAL DE BOLIVIA (BCB) Oficial ==========
 async function fetchBCB() {
   try {
-    const data = await pedirJSON('https://bo.dolarapi.com/v1/dolares/oficial');
-    return { buy: parseFloat(data.compra), sell: parseFloat(data.venta), timestamp: Date.now() };
-  } catch {
-    return ultimoGuardado('bcb');
+    const fetch = globalThis.fetch || require('node-fetch');
+    const res = await fetch('https://www.bcb.gob.bo/', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    
+    if (res.ok) {
+      const html = await res.text();
+      // Buscar algo como: <span class="bcb-tco-num">11,54</span>
+      const match = html.match(/<span[^>]*class="[^"]*bcb-tco-num[^"]*"[^>]*>\s*([\d,.]+)\s*<\/span>/i);
+      if (match && match[1]) {
+        // Convertir coma a punto decimal
+        const rate = parseFloat(match[1].replace(',', '.'));
+        return { buy: rate, sell: rate, timestamp: Date.now() };
+      }
+    }
+  } catch (e) {
+    console.error('Error consultando BCB Directo:', e.message);
   }
+  return { buy: 6.96, sell: 6.96, timestamp: Date.now() }; // Fallback
 }
 
 // ========== 2. PARALELO (automático desde paralelo.bo) ==========
@@ -122,93 +139,86 @@ async function fetchBinanceUSDC() {
   return fetchBinanceP2P('USDC');
 }
 
-// ========== 5. TAKENOS (API) ==========
-async function fetchTakenos() {
+// ========== 5. EURO OFICIAL (BCB CRUZADO INTERNACIONAL) ==========
+async function fetchEuroOficial() {
   try {
     const fetch = globalThis.fetch || require('node-fetch');
-    const res = await fetch('https://app.takenos.com/api/rates', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
-      },
-      signal: AbortSignal.timeout(5000)
-    });
+    const res = await fetch('https://open.er-api.com/v6/latest/EUR', { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       const data = await res.json();
-      const bo = data.find(d => d.currency === 'BOB' || d.currency === 'BO');
-      if (bo) {
-        return {
-          buy: parseFloat(bo.buy),
-          sell: parseFloat(bo.sell),
-          timestamp: Date.now()
-        };
+      if (data && data.rates && data.rates.BOB) {
+        const rate = parseFloat(data.rates.BOB);
+        return { buy: rate, sell: rate, timestamp: Date.now() };
       }
     }
   } catch (e) {
-    console.error('Error consultando API Takenos:', e.message);
+    console.error('Error consultando Euro Oficial:', e.message);
   }
-  
-  // Si la API falla o no tiene BOB, devolvemos 0 para no inventar datos
-  return { buy: 0, sell: 0, timestamp: Date.now() };
+  return ultimoGuardado('euroOficial');
 }
 
-// ========== 6. MERU (API) ==========
-async function fetchMeru() {
+// ========== 6. SPOT EUR/USDT (BINANCE) ==========
+async function fetchBinanceEuroSpot() {
   try {
     const fetch = globalThis.fetch || require('node-fetch');
-    const res = await fetch('https://api.getmeru.com/rates?country=BO', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
-      },
-      signal: AbortSignal.timeout(5000)
-    });
+    const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT', { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       const data = await res.json();
-      const bo = data?.rates?.BO || data?.rates?.BOB;
-      if (bo && (bo.USDC || bo.USDT)) {
-        const val = parseFloat(bo.USDC || bo.USDT);
-        return {
-          buy: val,
-          sell: parseFloat((val - 0.05).toFixed(2)),
-          timestamp: Date.now()
-        };
+      if (data && data.price) {
+        const rate = parseFloat(data.price);
+        return { rate, timestamp: Date.now() };
       }
     }
   } catch (e) {
-    console.error('Error consultando API Meru:', e.message);
+    console.error('Error consultando Binance Euro Spot:', e.message);
   }
-
-  // Si la API falla o no tiene BOB, devolvemos 0 para no inventar datos
-  return { buy: 0, sell: 0, timestamp: Date.now() };
+  return { rate: 1.08, timestamp: Date.now() }; // Fallback aproximado
 }
+
 
 // ========== 7. BOLIDOLAR (Precio Calle) ==========
 async function fetchBolidolar() {
   try {
     const fetch = globalThis.fetch || require('node-fetch');
-    const res = await fetch('https://www.bolidolar.com/api/exchange-rate?cache=true&department=santa-cruz', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
-      },
-      signal: AbortSignal.timeout(5000)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.success && data.data && data.data.rate) {
-        const val = parseFloat(data.data.rate);
-        return {
-          buy: val,
-          sell: parseFloat((val - 0.05).toFixed(2)),
-          timestamp: Date.now()
-        };
+    const cities = ['santa-cruz', 'la-paz', 'cochabamba'];
+    const results = { 'santa-cruz': 0, 'la-paz': 0, 'cochabamba': 0 };
+    let mainBuy = 0;
+
+    for (const city of cities) {
+      try {
+        const res = await fetch(`https://www.bolidolar.com/api/exchange-rate?cache=true&department=${city}`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+            'Accept': 'application/json'
+          },
+          signal: AbortSignal.timeout(3000)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && data.data && data.data.rate) {
+            results[city] = parseFloat(data.data.rate);
+            if (city === 'santa-cruz') mainBuy = results[city];
+          }
+        }
+      } catch (e) {
+        console.error(`Error consultando API Bolidolar para ${city}:`, e.message);
       }
     }
+    
+    return {
+      buy: mainBuy,
+      sell: parseFloat((mainBuy - 0.05).toFixed(2)),
+      timestamp: Date.now(),
+      cities: {
+        santaCruz: results['santa-cruz'],
+        laPaz: results['la-paz'],
+        cochabamba: results['cochabamba']
+      }
+    };
   } catch (e) {
-    console.error('Error consultando API Bolidolar:', e.message);
+    console.error('Error general consultando API Bolidolar:', e.message);
   }
-  return { buy: 0, sell: 0, timestamp: Date.now() };
+  return { buy: 0, sell: 0, timestamp: Date.now(), cities: {} };
 }
 
 // ========== 8. DUKASCOPY (Banco Suizo) - Histórico para Forex ==========
@@ -242,8 +252,8 @@ module.exports = {
   fetchParalelo,
   fetchBinanceUSDT,
   fetchBinanceUSDC,
-  fetchTakenos,
-  fetchMeru,
+  fetchEuroOficial,
+  fetchBinanceEuroSpot,
   fetchBolidolar,
   fetchDukascopyHistory
 };

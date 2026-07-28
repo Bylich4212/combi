@@ -52,8 +52,18 @@ async function getPronostico(req, res) {
       return res.status(500).json({ error: 'Faltan datos históricos' });
     }
     
-    // Correr pronóstico a 7 días
-    const resultado = pronostico.calcularPronostico(historia, 7);
+    // Correr pronóstico a 1, 7, 15 y 30 días
+    const d1 = pronostico.calcularPronostico(historia, 1);
+    const d7 = pronostico.calcularPronostico(historia, 7);
+    const d15 = pronostico.calcularPronostico(historia, 15);
+    const d30 = pronostico.calcularPronostico(historia, 30);
+    
+    const resultado = {
+      "1": d1,
+      "7": d7,
+      "15": d15,
+      "30": d30
+    };
     
     cache[claveCache] = { timestamp: Date.now(), data: resultado };
     res.json(resultado);

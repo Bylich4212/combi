@@ -46,8 +46,8 @@ function RatesGrid({ rates }) {
       <RateCard title="🏚 Paralelo (Calle)" data={rates.paralelo} />
       <RateCard title="💛 Binance (USDT)" data={rates.binanceUsdt} />
       <RateCard title="💙 Binance (USDC)" data={rates.binanceUsdc} />
-      <RateCard title="🟣 Takenos" data={rates.takenos} />
-      <RateCard title="🟢 Meru" data={rates.meru} />
+      <RateCard title="🇪🇺 Oficial BCB (EUR)" data={rates.euroOficial} prefix="Bs" />
+      <RateCard title="💶 Binance P2P (EUR)" data={rates.euroBinance} prefix="Bs" />
     </div>
   );
 }

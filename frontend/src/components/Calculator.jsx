@@ -7,8 +7,8 @@ function Calculator({ rates }) {
 
   return (
     <div className="glass-card" style={{ marginBottom: '40px' }}>
-      <h2 className="section-title">💰 ¿Cuánto recibo por mis Dólares?</h2>
-      <p className="section-subtitle">Calcula cuánto vale tu dinero en diferentes mercados al instante.</p>
+      <h2 className="section-title">💰 ¿Cuánto recibo por mi dinero?</h2>
+      <p className="section-subtitle">Calcula el valor de tus Dólares (USD) o Euros (EUR) al instante.</p>
       
       <div className="calc-input-wrapper">
         <span style={{ color: 'var(--text-muted)' }}>$</span>
@@ -20,7 +20,7 @@ function Calculator({ rates }) {
           min="0" 
           placeholder="Ingresa la cantidad"
         />
-        <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>USD</span>
+        <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>USD / EUR</span>
       </div>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -37,8 +37,16 @@ function Calculator({ rates }) {
           <span style={{ fontWeight: 600, color: 'var(--success)' }}>{(monto * (rates.binanceUsdt?.buy || 0)).toFixed(2)} Bs</span>
         </div>
         <div className="calc-result-row">
-          <span>🟣 Takenos</span>
-          <span style={{ fontWeight: 600, color: 'var(--success)' }}>{(monto * (rates.takenos?.buy || 0)).toFixed(2)} Bs</span>
+          <span>💙 Binance USDC</span>
+          <span style={{ fontWeight: 600, color: 'var(--success)' }}>{(monto * (rates.binanceUsdc?.buy || 0)).toFixed(2)} Bs</span>
+        </div>
+        <div className="calc-result-row">
+          <span>🇪🇺 Oficial BCB (EUR)</span>
+          <span style={{ fontWeight: 600 }}>{(monto * (rates.euroOficial?.buy || 0)).toFixed(2)} Bs</span>
+        </div>
+        <div className="calc-result-row">
+          <span>💶 Binance P2P (EUR)</span>
+          <span style={{ fontWeight: 600, color: 'var(--success)' }}>{(monto * (rates.euroBinance?.buy || 0)).toFixed(2)} Bs</span>
         </div>
       </div>
     </div>

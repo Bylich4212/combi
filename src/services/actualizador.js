@@ -4,7 +4,7 @@
 // =====================================================================
 const db = require('../config/db');
 const cache = require('../config/cache');
-const { fetchBCB, fetchParalelo, fetchBinanceUSDT, fetchBinanceUSDC, fetchTakenos, fetchMeru, fetchBolidolar } = require('./fuentes');
+const { fetchBCB, fetchParalelo, fetchBinanceUSDT, fetchBinanceUSDC, fetchEuroOficial, fetchBinanceEuroSpot, fetchBolidolar } = require('./fuentes');
 
 let contadorCorridas = 0;
 
@@ -53,8 +53,8 @@ function asegurarHistoricoInicial(tasas) {
   console.log('Seeding initial 24h historical data for chart...');
   const baseUsdt = tasas.binanceUsdt?.buy || 10.72;
   const baseUsdc = tasas.binanceUsdc?.buy || 10.71;
-  const baseTakenos = tasas.takenos?.buy || 10.93;
-  const baseMeru = tasas.meru?.buy || 11.09;
+  const baseEuroO = 12.60;
+  const baseEuroB = 13.20;
 
   const ahora = Date.now();
   const puntos = [];
@@ -67,8 +67,8 @@ function asegurarHistoricoInicial(tasas) {
       binanceUsdt: parseFloat((baseUsdt + variacion).toFixed(2)),
       binanceUsdc: parseFloat((baseUsdc + variacion * 0.8).toFixed(2)),
       paralelo: parseFloat((baseParalelo + variacion * 1.1).toFixed(2)),
-      takenos: parseFloat((baseTakenos + variacion * 0.9).toFixed(2)),
-      meru: parseFloat((baseMeru + variacion * 0.85).toFixed(2)),
+      euroOficial: parseFloat((baseEuroO + variacion * 0.9).toFixed(2)),
+      euroBinance: parseFloat((baseEuroB + variacion * 0.85).toFixed(2)),
     });
   }
   cache.history = puntos;
@@ -85,18 +85,29 @@ async function actualizar(bot) {
     fetchBinanceUSDC()
   ]);
   
-  // PASO 1b: pedir Takenos, Meru y Bolidolar (ahora sin fallbacks)
-  const [takenos, meru, bolidolar] = await Promise.all([
-    fetchTakenos(),
-    fetchMeru(),
+  // PASO 1b: pedir Euros y Bolidolar
+  const [euroOficial, euroSpot, bolidolar] = await Promise.all([
+    fetchEuroOficial(),
+    fetchBinanceEuroSpot(),
     fetchBolidolar()
   ]);
 
+  // Calcular el Euro Binance (USDT/BOB P2P * EUR/USDT Spot)
+  // Si no hay P2P USDT, usamos el paralelo como referencia
+  const baseUsdtBuy = binanceUsdt?.buy || paralelo?.buy || 11.74;
+  const baseUsdtSell = binanceUsdt?.sell || paralelo?.sell || 11.70;
+  
+  const euroBinance = {
+    buy: parseFloat((baseUsdtBuy * euroSpot.rate).toFixed(2)),
+    sell: parseFloat((baseUsdtSell * (euroSpot.rate - 0.01)).toFixed(2)), // ligero spread para venta
+    timestamp: Date.now()
+  };
+
   // PASO 2: a la memoria rápida del servidor
-  cache.rates = { bcb, paralelo, binanceUsdt, binanceUsdc, takenos, meru, bolidolar, updatedAt: Date.now() };
+  cache.rates = { bcb, paralelo, binanceUsdt, binanceUsdc, euroOficial, euroBinance, bolidolar, updatedAt: Date.now() };
 
   // Asegurar historial para el gráfico
-  asegurarHistoricoInicial({ binanceUsdt, binanceUsdc, paralelo, takenos, meru });
+  asegurarHistoricoInicial({ binanceUsdt, binanceUsdc, paralelo, euroOficial, euroBinance });
 
   // PASO 3: punto para el gráfico (con todas las monedas para permitir cambio en la web)
   const referencia = binanceUsdt?.buy || paralelo?.buy || 10.70;
@@ -107,8 +118,8 @@ async function actualizar(bot) {
     binanceUsdc: binanceUsdc?.buy || referencia,
     paralelo: paralelo?.buy || referencia,
     bolidolar: bolidolar?.buy || null,
-    takenos: takenos?.buy || null,
-    meru: meru?.buy || null,
+    euroOficial: euroOficial?.buy || null,
+    euroBinance: euroBinance?.buy || null,
   });
   if (cache.history.length > 2000) cache.history.shift();
 
