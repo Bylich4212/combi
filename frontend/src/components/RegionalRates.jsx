@@ -9,7 +9,7 @@ function RegionalRates({ bolidolar }) {
   return (
     <div style={{ marginBottom: '40px', background: '#0b0f19', padding: '32px 24px', borderRadius: '16px', border: '1px solid var(--card-border)', textAlign: 'center' }}>
       <div style={{ fontSize: '0.8rem', letterSpacing: '2px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '16px', textTransform: 'uppercase' }}>
-        Exclusivo de CotiBO
+        Exclusivo de Cambi
       </div>
       
       <h2 style={{ fontSize: '2rem', fontWeight: '800', lineHeight: 1.2, marginBottom: '32px', color: '#fff' }}>

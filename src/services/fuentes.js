@@ -60,13 +60,13 @@ async function fetchBCB() {
       if (match && match[1]) {
         // Convertir coma a punto decimal
         const rate = parseFloat(match[1].replace(',', '.'));
-        return { buy: rate, sell: rate, timestamp: Date.now() };
+        return { buy: rate, sell: null, timestamp: Date.now() };
       }
     }
   } catch (e) {
     console.error('Error consultando BCB Directo:', e.message);
   }
-  return { buy: 6.96, sell: 6.96, timestamp: Date.now() }; // Fallback
+  return { buy: 6.96, sell: null, timestamp: Date.now() }; // Fallback
 }
 
 // ========== 2. PARALELO (automático desde paralelo.bo) ==========
@@ -91,20 +91,19 @@ async function fetchParalelo() {
 async function fetchBinanceP2P(asset = 'USDT') {
   try {
     const fetch = globalThis.fetch || require('node-fetch');
-    // En Binance P2P con fiat BOB:
-    // tradeType: 'SELL' -> Comerciantes compran BOB/USDT del usuario (tasa de Compra / Buy)
-    // tradeType: 'BUY'  -> Comerciantes venden BOB/USDT al usuario (tasa de Venta / Sell)
+    // tradeType: 'BUY'  -> Usuario entra a la pestaña "Comprar" crypto
+    // tradeType: 'SELL' -> Usuario entra a la pestaña "Vender" crypto
     const [resCompra, resVenta] = await Promise.all([
       fetch('https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-        body: JSON.stringify({ page: 1, rows: 5, payTypes: [], asset, tradeType: 'SELL', fiat: 'BOB' }),
+        body: JSON.stringify({ page: 1, rows: 20, payTypes: [], asset, tradeType: 'BUY', fiat: 'BOB' }),
         signal: AbortSignal.timeout(6000)
       }),
       fetch('https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-        body: JSON.stringify({ page: 1, rows: 5, payTypes: [], asset, tradeType: 'BUY', fiat: 'BOB' }),
+        body: JSON.stringify({ page: 1, rows: 20, payTypes: [], asset, tradeType: 'SELL', fiat: 'BOB' }),
         signal: AbortSignal.timeout(6000)
       })
     ]);
@@ -113,16 +112,24 @@ async function fetchBinanceP2P(asset = 'USDT') {
     const dataCompra = await resCompra.json();
     const dataVenta = await resVenta.json();
 
-    const preciosCompra = (dataCompra.data || []).map(x => parseFloat(x.adv?.price)).filter(x => !isNaN(x) && x > 0);
-    const preciosVenta = (dataVenta.data || []).map(x => parseFloat(x.adv?.price)).filter(x => !isNaN(x) && x > 0);
+    let preciosCompra = (dataCompra.data || []).map(x => parseFloat(x.adv?.price)).filter(x => !isNaN(x) && x > 0);
+    let preciosVenta = (dataVenta.data || []).map(x => parseFloat(x.adv?.price)).filter(x => !isNaN(x) && x > 0);
+
+    // Ordenar para garantizar que promediamos las mejores ofertas reales:
+    // Compra (Usuario compra crypto): queremos el precio MÁS BAJO
+    preciosCompra.sort((a, b) => a - b);
+    // Venta (Usuario vende crypto): queremos el precio MÁS ALTO
+    preciosVenta.sort((a, b) => b - a);
 
     if (preciosCompra.length === 0 || preciosVenta.length === 0) {
       throw new Error('Sin anuncios P2P de ' + asset);
     }
 
-    // Tomamos el promedio de las 3 mejores ofertas del mercado (o las disponibles si son menos)
-    const buy = parseFloat((preciosCompra.slice(0, 3).reduce((a, b) => a + b, 0) / Math.min(preciosCompra.length, 3)).toFixed(2));
-    const sell = parseFloat((preciosVenta.slice(0, 3).reduce((a, b) => a + b, 0) / Math.min(preciosVenta.length, 3)).toFixed(2));
+    // Tomamos el promedio de las 15 mejores ofertas del mercado para mayor estabilidad (ya que ahora solicitamos 20 max)
+    const sampleSizeBuy = Math.min(preciosCompra.length, 15);
+    const sampleSizeSell = Math.min(preciosVenta.length, 15);
+    const buy = parseFloat((preciosCompra.slice(0, sampleSizeBuy).reduce((a, b) => a + b, 0) / sampleSizeBuy).toFixed(2));
+    const sell = parseFloat((preciosVenta.slice(0, sampleSizeSell).reduce((a, b) => a + b, 0) / sampleSizeSell).toFixed(2));
 
     return { buy, sell, timestamp: Date.now() };
   } catch {
@@ -139,40 +146,69 @@ async function fetchBinanceUSDC() {
   return fetchBinanceP2P('USDC');
 }
 
-// ========== 5. EURO OFICIAL (BCB CRUZADO INTERNACIONAL) ==========
+// ========== 5. EURO OFICIAL (BCB DIRECTO) ==========
 async function fetchEuroOficial() {
   try {
     const fetch = globalThis.fetch || require('node-fetch');
-    const res = await fetch('https://open.er-api.com/v6/latest/EUR', { signal: AbortSignal.timeout(5000) });
+    const res = await fetch('https://www.bcb.gob.bo/librerias/indicadores/euro/ultimo.php', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      signal: AbortSignal.timeout(5000)
+    });
     if (res.ok) {
-      const data = await res.json();
-      if (data && data.rates && data.rates.BOB) {
-        const rate = parseFloat(data.rates.BOB);
-        return { buy: rate, sell: rate, timestamp: Date.now() };
+      const html = await res.text();
+      const matches = [...html.matchAll(/([0-9]+,[0-9]+)&nbsp;/g)];
+      // El segundo match es la tasa "En Bs por unidad de Euro" (ej. 13,12214)
+      if (matches && matches.length >= 2) {
+        const rate = parseFloat(matches[1][1].replace(',', '.'));
+        return { buy: rate, sell: null, timestamp: Date.now() };
       }
     }
   } catch (e) {
-    console.error('Error consultando Euro Oficial:', e.message);
+    console.error('Error consultando Euro Oficial BCB:', e.message);
   }
   return ultimoGuardado('euroOficial');
 }
 
-// ========== 6. SPOT EUR/USDT (BINANCE) ==========
+// ========== 6. WISE (EUR) ==========
+async function fetchEuroWise() {
+  try {
+    const fetch = globalThis.fetch || require('node-fetch');
+    const res = await fetch('https://wise.com/rates/live?source=EUR&target=BOB&length=1', { signal: AbortSignal.timeout(5000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.value) {
+        const rate = parseFloat(data.value);
+        // En Wise, solo se puede enviar EUR a BOB (no al revés). 
+        // No hay un precio de "venta" de EUR, usan una tasa mid-market única.
+        return { buy: rate, sell: null, timestamp: Date.now() };
+      }
+    }
+  } catch (e) {
+    console.error('Error consultando Wise Euro:', e.message);
+  }
+  return ultimoGuardado('euroWise');
+}
+
+// ========== 6.5 SPOT EUR/USDT (BINANCE) ==========
 async function fetchBinanceEuroSpot() {
   try {
     const fetch = globalThis.fetch || require('node-fetch');
-    const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT', { signal: AbortSignal.timeout(5000) });
+    // Usamos bookTicker para obtener el precio real de Compra (Bid) y Venta (Ask) que fija Binance
+    const res = await fetch('https://api.binance.com/api/v3/ticker/bookTicker?symbol=EURUSDT', { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       const data = await res.json();
-      if (data && data.price) {
-        const rate = parseFloat(data.price);
-        return { rate, timestamp: Date.now() };
+      if (data && data.bidPrice && data.askPrice) {
+        return { 
+          bid: parseFloat(data.bidPrice), 
+          ask: parseFloat(data.askPrice), 
+          timestamp: Date.now() 
+        };
       }
     }
   } catch (e) {
     console.error('Error consultando Binance Euro Spot:', e.message);
   }
-  return { rate: 1.08, timestamp: Date.now() }; // Fallback aproximado
+  return { bid: 1.08, ask: 1.08, timestamp: Date.now() }; // Fallback aproximado
 }
 
 
@@ -253,6 +289,7 @@ module.exports = {
   fetchBinanceUSDT,
   fetchBinanceUSDC,
   fetchEuroOficial,
+  fetchEuroWise,
   fetchBinanceEuroSpot,
   fetchBolidolar,
   fetchDukascopyHistory

@@ -4,9 +4,9 @@ function Navbar({ user, onLoginClick, onRegisterClick, onLogout }) {
   return (
     <header className="navbar">
       <div className="brand">
-        <img src="/assets/logo.png" alt="Logo CotiBO" />
+        <img src="/assets/logo.png" alt="Logo Cambi" />
         <div>
-          <h1>CotiBO</h1>
+          <h1>Cambi</h1>
           <p className="sub">Cotizaciones en tiempo real</p>
         </div>
       </div>

@@ -36,7 +36,7 @@
         if (res.ok) {
           // Recordar el email en este navegador: cuando el admin apruebe,
           // la página principal dejará de mostrar anuncios automáticamente
-          localStorage.setItem('cotibo_email', email.toLowerCase());
+          localStorage.setItem('cambi_email', email.toLowerCase());
         }
       } catch {
         mensaje.textContent = 'Error de conexión. Intenta de nuevo.';

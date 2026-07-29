@@ -120,7 +120,7 @@
   ⚠️  OBLIGATORIOS:
     1. Reemplazar public/qr-pago.png con tu QR real
     2. Editar premium.html: buscar "Banco XYZ" y "Tu Nombre"
-    3. Editar index.html: buscar "cotibo_bot" y cambiar por tu usuario real
+    3. Editar index.html: buscar "cambi_bot" y cambiar por tu usuario real
 
   ⚠️  OPCIONALES (después de lanzar):
     1. Comprar un dominio propio (.com o .bo)

@@ -33,7 +33,7 @@ const f = (n) => (n ? Number(n).toFixed(2) : '--');
 
 bot.command('start', (ctx) =>
   ctx.reply(
-    '👋 ¡Hola! Soy el bot de CotiBO.\n\n' +
+    '👋 ¡Hola! Soy el bot de Cambi.\n\n' +
       '/dolar — precio del dólar en Bolivia ahora\n' +
       '/alerta 10.80 — te aviso cuando el dólar llegue a ese valor\n' +
       '/alerta off — apagar tu alerta'
@@ -45,7 +45,7 @@ bot.command('dolar', async (ctx) => {
   const r = cache.rates;
   if (!r) return ctx.reply('Datos no disponibles aún. Intenta en un minuto.');
   await ctx.reply(
-    `🇧🇴 *CotiBO — Dólar hoy*\n` +
+    `🇧🇴 *Cambi — Dólar hoy*\n` +
       `🏛 Oficial BCB: Compra ${f(r.bcb?.buy)} | Venta ${f(r.bcb?.sell)}\n` +
       `🏚 Paralelo P2P: Compra ${f(r.paralelo?.buy)} | Venta ${f(r.paralelo?.sell)}\n` +
       `💛 Binance USDT: Compra ${f(r.binanceUsdt?.buy)} | Venta ${f(r.binanceUsdt?.sell)}\n` +

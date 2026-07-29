@@ -38,7 +38,7 @@ app.listen(PORT, async () => {
   const postgres = require('./src/config/postgres');
   await postgres.initDB();
 
-  console.log(`✅ CotiBO corriendo en http://localhost:${PORT}`);
+  console.log(`✅ Cambi corriendo en http://localhost:${PORT}`);
 
   // Recuperar el histórico del gráfico guardado en Redis
   await restaurarHistorico();

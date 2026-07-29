@@ -79,7 +79,7 @@ function App() {
           cuando el dólar llegue a ese precio. También responde <b>/dolar</b>
           con las cotizaciones al momento.
         </p>
-        <a className="btn-primary" href="https://t.me/cotibo_bot" target="_blank" rel="noopener noreferrer">
+        <a className="btn-primary" href="https://t.me/cambi_bot" target="_blank" rel="noopener noreferrer">
           Abrir el bot en Telegram
         </a>
       </div>

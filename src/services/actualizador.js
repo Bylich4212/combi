@@ -4,7 +4,7 @@
 // =====================================================================
 const db = require('../config/db');
 const cache = require('../config/cache');
-const { fetchBCB, fetchParalelo, fetchBinanceUSDT, fetchBinanceUSDC, fetchEuroOficial, fetchBinanceEuroSpot, fetchBolidolar } = require('./fuentes');
+const { fetchBCB, fetchParalelo, fetchBinanceUSDT, fetchBinanceUSDC, fetchEuroOficial, fetchEuroWise, fetchBinanceEuroSpot, fetchBolidolar } = require('./fuentes');
 
 let contadorCorridas = 0;
 
@@ -67,8 +67,9 @@ function asegurarHistoricoInicial(tasas) {
       binanceUsdt: parseFloat((baseUsdt + variacion).toFixed(2)),
       binanceUsdc: parseFloat((baseUsdc + variacion * 0.8).toFixed(2)),
       paralelo: parseFloat((baseParalelo + variacion * 1.1).toFixed(2)),
-      euroOficial: parseFloat((baseEuroO + variacion * 0.9).toFixed(2)),
-      euroBinance: parseFloat((baseEuroB + variacion * 0.85).toFixed(2)),
+      euroOficial: parseFloat((12.60 + variacion * 0.9).toFixed(2)),
+      euroWise: parseFloat((12.95 + variacion * 0.85).toFixed(2)),
+      euroBinance: parseFloat((12.75 + variacion * 0.85).toFixed(2)),
     });
   }
   cache.history = puntos;
@@ -86,28 +87,35 @@ async function actualizar(bot) {
   ]);
   
   // PASO 1b: pedir Euros y Bolidolar
-  const [euroOficial, euroSpot, bolidolar] = await Promise.all([
+  const [euroOficial, euroWise, euroSpot, bolidolar] = await Promise.all([
     fetchEuroOficial(),
+    fetchEuroWise(),
     fetchBinanceEuroSpot(),
     fetchBolidolar()
   ]);
 
-  // Calcular el Euro Binance (USDT/BOB P2P * EUR/USDT Spot)
-  // Si no hay P2P USDT, usamos el paralelo como referencia
   const baseUsdtBuy = binanceUsdt?.buy || paralelo?.buy || 11.74;
   const baseUsdtSell = binanceUsdt?.sell || paralelo?.sell || 11.70;
   
+  // Para que el usuario COMPRE Euros (BOB -> USDT -> EUR)
+  // Binance Express cobra un fee de enrutamiento oculto/spread de ~1% cuando hace este cruce automático
+  const euroBinanceBuy = baseUsdtBuy * (euroSpot.ask * 1.01);
+  
+  // Para que el usuario VENDA Euros (EUR -> USDT -> BOB)
+  // Binance aplica un descuento/spread de ~0.8% en la venta
+  const euroBinanceSell = baseUsdtSell * (euroSpot.bid * 0.992);
+
   const euroBinance = {
-    buy: parseFloat((baseUsdtBuy * euroSpot.rate).toFixed(2)),
-    sell: parseFloat((baseUsdtSell * (euroSpot.rate - 0.01)).toFixed(2)), // ligero spread para venta
+    buy: parseFloat(euroBinanceBuy.toFixed(2)),
+    sell: parseFloat(euroBinanceSell.toFixed(2)),
     timestamp: Date.now()
   };
 
   // PASO 2: a la memoria rápida del servidor
-  cache.rates = { bcb, paralelo, binanceUsdt, binanceUsdc, euroOficial, euroBinance, bolidolar, updatedAt: Date.now() };
+  cache.rates = { bcb, paralelo, binanceUsdt, binanceUsdc, euroOficial, euroWise, euroBinance, bolidolar, updatedAt: Date.now() };
 
   // Asegurar historial para el gráfico
-  asegurarHistoricoInicial({ binanceUsdt, binanceUsdc, paralelo, euroOficial, euroBinance });
+  asegurarHistoricoInicial({ binanceUsdt, binanceUsdc, paralelo, euroOficial, euroWise, euroBinance });
 
   // PASO 3: punto para el gráfico (con todas las monedas para permitir cambio en la web)
   const referencia = binanceUsdt?.buy || paralelo?.buy || 10.70;
@@ -119,6 +127,7 @@ async function actualizar(bot) {
     paralelo: paralelo?.buy || referencia,
     bolidolar: bolidolar?.buy || null,
     euroOficial: euroOficial?.buy || null,
+    euroWise: euroWise?.buy || null,
     euroBinance: euroBinance?.buy || null,
   });
   if (cache.history.length > 2000) cache.history.shift();
@@ -151,7 +160,7 @@ async function actualizar(bot) {
           try {
             await bot.api.sendMessage(
               chatId,
-              `🚨 ¡Alerta CotiBO!\nEl dólar paralelo llegó a ${referencia.toFixed(2)} BOB\n(tu umbral era ${u})\n\nPara desactivar: /alerta off`
+              `🚨 ¡Alerta Cambi!\nEl dólar paralelo llegó a ${referencia.toFixed(2)} BOB\n(tu umbral era ${u})\n\nPara desactivar: /alerta off`
             );
             cache.avisados.set(chatId, Date.now());
           } catch {

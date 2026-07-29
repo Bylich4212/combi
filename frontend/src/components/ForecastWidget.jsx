@@ -32,8 +32,8 @@ function ForecastWidget({ token, onRequireAuth }) {
   if (!token) {
     return (
       <div className="glass-card" style={{ textAlign: 'center', padding: '40px 20px', marginBottom: '40px' }}>
-        <h2 className="section-title" style={{ justifyContent: 'center' }}>🔮 Pronóstico Inteligente</h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>Inicia sesión o adquiere Premium para ver la probabilidad matemática de que el dólar suba o baje en los próximos días.</p>
+        <h2 className="section-title" style={{ justifyContent: 'center' }}>🔮 Pronóstico Inteligente (Dólar a Boliviano)</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>Inicia sesión o adquiere Premium para ver la probabilidad matemática de que el dólar (USD) suba o baje en los próximos días frente al Boliviano (BOB).</p>
         <button onClick={onRequireAuth} className="btn-primary">Ver Pronóstico</button>
       </div>
     );
@@ -69,8 +69,8 @@ function ForecastWidget({ token, onRequireAuth }) {
       <div style={{ display: 'inline-block', background: '#fbbf24', color: '#000', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 12px', borderRadius: '12px', letterSpacing: '1px', marginBottom: '16px' }}>
         PREMIUM
       </div>
-      <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '8px' }}>¿Va a subir o bajar?</h2>
-      <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>Un algoritmo te lo estima.</p>
+      <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '8px' }}>¿Va a subir o bajar? (Dólar a Boliviano)</h2>
+      <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>Un algoritmo te estima el futuro del USD frente al BOB.</p>
 
       <div className="glass-card" style={{ maxWidth: '400px', margin: '0 auto', padding: '32px 24px' }}>
         <div style={{ fontSize: '4.5rem', fontWeight: '800', color: probColor, lineHeight: 1, marginBottom: '8px' }}>

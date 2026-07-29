@@ -132,7 +132,7 @@
 
     // ---- ¿El visitante es premium? Entonces esconder el anuncio ----
     async function revisarPremium() {
-      const email = localStorage.getItem('cotibo_email');
+      const email = localStorage.getItem('cambi_email');
       if (!email) return;
       try {
         const res = await fetch('/api/premium/status?email=' + encodeURIComponent(email));
@@ -499,7 +499,7 @@ async function loadP2pAds() {
       // Enlace de WhatsApp
       let cleanPhone = String(ad.phone_number).replace(/[^0-9]/g, '');
       if (cleanPhone && !cleanPhone.startsWith('591')) cleanPhone = '591' + cleanPhone;
-      const wpMsg = encodeURIComponent(`Hola, vi tu anuncio en CotiBO. ¿Sigues ${isCompra ? 'comprando' : 'vendiendo'} $${ad.amount} a ${ad.exchange_rate} Bs?`);
+      const wpMsg = encodeURIComponent(`Hola, vi tu anuncio en Cambi. ¿Sigues ${isCompra ? 'comprando' : 'vendiendo'} $${ad.amount} a ${ad.exchange_rate} Bs?`);
       
       card.innerHTML = `
         <div class="p2p-header">
