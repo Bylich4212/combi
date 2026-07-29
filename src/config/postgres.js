@@ -5,7 +5,10 @@ const pool = new Pool({
   password: process.env.POSTGRES_PASSWORD || 'adminpassword',
   host: process.env.POSTGRES_HOST || 'localhost',
   port: process.env.POSTGRES_PORT || 5432,
-  database: process.env.POSTGRES_DB || 'cambi_db'
+  database: process.env.POSTGRES_DB || 'cambi_db',
+  ssl: process.env.POSTGRES_HOST && process.env.POSTGRES_HOST.includes('neon.tech') 
+       ? { rejectUnauthorized: false } 
+       : false
 });
 
 async function initDB() {

@@ -32,7 +32,7 @@ function ForecastWidget({ token, onRequireAuth }) {
   if (!token) {
     return (
       <div className="glass-card" style={{ textAlign: 'center', padding: '40px 20px', marginBottom: '40px' }}>
-        <h2 className="section-title" style={{ justifyContent: 'center' }}>🔮 Pronóstico Inteligente (Dólar a Boliviano)</h2>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '16px' }}>🔮 Pronóstico Inteligente (Dólar a Boliviano)</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>Inicia sesión o adquiere Premium para ver la probabilidad matemática de que el dólar (USD) suba o baje en los próximos días frente al Boliviano (BOB).</p>
         <button onClick={onRequireAuth} className="btn-primary">Ver Pronóstico</button>
       </div>
@@ -72,36 +72,36 @@ function ForecastWidget({ token, onRequireAuth }) {
       <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '8px' }}>¿Va a subir o bajar? (Dólar a Boliviano)</h2>
       <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>Un algoritmo te estima el futuro del USD frente al BOB.</p>
 
-      <div className="glass-card" style={{ maxWidth: '400px', margin: '0 auto', padding: '32px 24px' }}>
-        <div style={{ fontSize: '4.5rem', fontWeight: '800', color: probColor, lineHeight: 1, marginBottom: '8px' }}>
+      <div className="glass-card" style={{ maxWidth: '400px', margin: '0 auto', padding: '32px 24px', background: 'var(--card-bg)' }}>
+        <div style={{ fontSize: '4.5rem', fontWeight: '800', color: probColor, lineHeight: 1, marginBottom: '8px', textShadow: `0 0 20px ${probColor}40` }}>
           {probArrow} {percentage}%
         </div>
-        <div style={{ fontSize: '1.1rem', color: '#fff', marginBottom: '24px' }}>
+        <div style={{ fontSize: '1.1rem', color: '#fff', marginBottom: '24px', fontWeight: 600 }}>
           probable que {probText} en {period === '1' ? 'hoy' : `${period} días`}
         </div>
 
-        <div style={{ fontSize: '1rem', color: 'var(--text-muted)', fontFamily: 'monospace', marginBottom: '32px' }}>
-          rango probable: {pData.rango80.min.toFixed(2)} - {pData.rango80.max.toFixed(2)} Bs
+        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontFamily: 'monospace', marginBottom: '32px', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px', border: '1px solid var(--card-border)' }}>
+          RANGO PROBABLE: <span style={{ color: '#fff' }}>{pData.rango80.min.toFixed(2)} - {pData.rango80.max.toFixed(2)} Bs</span>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
           {['1', '7', '15', '30'].map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               style={{
-                background: period === p ? '#fbbf24' : 'transparent',
-                color: period === p ? '#000' : 'var(--text-muted)',
+                background: period === p ? 'var(--accent)' : 'rgba(255,255,255,0.05)',
+                color: period === p ? '#fff' : 'var(--text-muted)',
                 border: 'none',
                 padding: '8px 16px',
-                borderRadius: '20px',
-                fontWeight: period === p ? 'bold' : 'normal',
+                borderRadius: '8px',
+                fontWeight: 600,
                 fontSize: '0.9rem',
                 cursor: 'pointer',
                 transition: 'all 0.2s'
               }}
             >
-              {p === '1' ? 'HOY' : `${p}d`}
+              {p === '1' ? '1D' : `${p}D`}
             </button>
           ))}
         </div>

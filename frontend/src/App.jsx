@@ -72,16 +72,11 @@ function App() {
         </>
       )}
 
-      <div className="caja glass" style={{ marginTop: '24px' }}>
-        <h2>🔔 Alertas gratis por Telegram</h2>
-        <p className="sub" style={{ marginBottom: '12px' }}>
-          Escríbele a nuestro bot <b>/alerta 10.80</b> y te avisará al instante
-          cuando el dólar llegue a ese precio. También responde <b>/dolar</b>
-          con las cotizaciones al momento.
-        </p>
-        <a className="btn-primary" href="https://t.me/cambi_bot" target="_blank" rel="noopener noreferrer">
-          Abrir el bot en Telegram
-        </a>
+      <div className="glass-card" style={{ marginTop: '24px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', textAlign: 'center', padding: '40px 20px' }}>
+        <h2 style={{ fontSize: '1.3rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>🤖 Bot de Alertas por Telegram</h2>
+        <div style={{ display: 'inline-block', background: 'var(--accent)', color: '#fff', fontSize: '0.75rem', fontWeight: 700, padding: '4px 12px', borderRadius: '12px', letterSpacing: '1px' }}>
+          PRÓXIMAMENTE
+        </div>
       </div>
 
       <footer style={{ textAlign: 'center', padding: '24px', color: 'var(--gris)', fontSize: '0.9rem' }}>

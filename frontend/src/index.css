@@ -1,23 +1,24 @@
 :root {
-  /* Premium Dark Theme Palette */
-  --bg-color: #0b0f19;       /* Deep dark blue/black */
-  --card-bg: rgba(22, 30, 45, 0.6); /* Translucent dark blue */
-  --card-border: rgba(255, 255, 255, 0.08);
-  --card-hover: rgba(30, 41, 59, 0.8);
+  /* Premium Flat Dark Theme Palette (Fintech Style) */
+  --bg-color: #080C13;       /* Deep slate/black */
+  --card-bg: #111A27;        /* Solid slate dark blue */
+  --card-border: rgba(255, 255, 255, 0.05);
+  --card-hover: #152030;
   
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   
-  --accent: #06b6d4;         /* Cyan */
-  --accent-hover: #0891b2;
-  --accent-glow: rgba(6, 182, 212, 0.4);
+  --accent: #10B981;         /* Emerald Green (Action) */
+  --accent-hover: #059669;
+  --accent-glow: rgba(16, 185, 129, 0.4);
   
-  --success: #10b981;
-  --success-bg: rgba(16, 185, 129, 0.15);
-  --danger: #ef4444;
-  --danger-bg: rgba(239, 68, 68, 0.15);
+  --success: #10B981;
+  --success-bg: rgba(16, 185, 129, 0.1);
+  --danger: #3B82F6;         /* Changed 'venta' to a cool blue instead of red for a calmer look, or maybe keep it red? The screenshot uses a slightly different tone. Actually let's use #EF4444 for Venta if we want classic finance, but let's stick to the screen: green for buy, dark blue/gray for sell box */
+  --danger-bg: rgba(59, 130, 246, 0.1);
+  --venta-color: #F8FAFC;
   
-  --font-family: 'Outfit', -apple-system, sans-serif;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 * {
@@ -29,12 +30,10 @@
 body {
   font-family: var(--font-family);
   background-color: var(--bg-color);
-  background-image: 
-    radial-gradient(circle at 15% 50%, rgba(6, 182, 212, 0.08), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%);
   color: var(--text-main);
   line-height: 1.6;
   min-height: 100vh;
+  letter-spacing: -0.01em;
 }
 
 /* App Container */
@@ -52,16 +51,12 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: rgba(11, 15, 25, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg-color);
   border-bottom: 1px solid var(--card-border);
-  border-radius: 16px;
   margin-bottom: 32px;
   position: sticky;
-  top: 10px;
+  top: 0;
   z-index: 100;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 .brand {
@@ -73,7 +68,7 @@ body {
 .brand img {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: 50%;
   box-shadow: 0 0 15px var(--accent-glow);
 }
 
@@ -165,21 +160,17 @@ button:disabled {
 
 .glass-card {
   background: var(--card-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--card-border);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 24px;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
 }
 
 .glass-card:hover {
-  transform: translateY(-4px);
   background: var(--card-hover);
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 /* Rate Card Specifics */
@@ -219,12 +210,10 @@ button:disabled {
 
 .rate-value.compra {
   color: var(--success);
-  text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
 }
 
 .rate-value.venta {
-  color: var(--danger);
-  text-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+  color: var(--venta-color);
 }
 
 .rate-footer {
