@@ -10,7 +10,8 @@ function ForecastWidget({ token, onRequireAuth }) {
     const fetchForecast = async () => {
       if (!token) return;
       try {
-        const res = await fetch('http://localhost:3000/api/pronostico', {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const res = await fetch(`${API_URL}/api/pronostico`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const json = await res.json();
